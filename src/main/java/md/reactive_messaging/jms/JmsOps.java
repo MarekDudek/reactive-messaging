@@ -4,8 +4,11 @@ import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.utils.Either;
 
 import javax.jms.*;
+import java.util.Optional;
 import java.util.function.Consumer;
 
+import static java.util.Optional.empty;
+import static java.util.Optional.of;
 import static md.reactive_messaging.utils.Either.left;
 import static md.reactive_messaging.utils.Either.right;
 
@@ -129,6 +132,62 @@ public class JmsOps
         }
     }
 
+    public Either<JMSException, MessageProducer> createProducer
+            (
+                    final Session session,
+                    final Queue queue
+            )
+    {
+        try
+        {
+            log.info("Creating producer");
+            final MessageProducer producer = session.createProducer(queue);
+            log.info("Created producer");
+            return right(producer);
+        }
+        catch (JMSException e)
+        {
+            log.error("Failed creating producer: {}", e.getMessage());
+            return left(e);
+        }
+    }
+
+    public Either<JMSException, TextMessage> createTextMessage(final Session session)
+    {
+        try
+        {
+            log.trace("Creating text message");
+            final TextMessage message = session.createTextMessage();
+            log.trace("Created text message");
+            return right(message);
+        }
+        catch (final JMSException e)
+        {
+            log.error("Failed creating text message: {}", e.getMessage());
+            return left(e);
+        }
+    }
+
+    public Optional<JMSException> sendMessage
+            (
+                    final MessageProducer producer,
+                    final Message message
+            )
+    {
+        try
+        {
+            log.trace("Sending message");
+            producer.send(message);
+            log.trace("Sent message");
+            return empty();
+        }
+        catch (final JMSException e)
+        {
+            log.error("Failed sending message: {}", e.getMessage());
+            return of(e);
+        }
+    }
+
     public Either<JMSException, MessageConsumer> createConsumer
             (
                     final Session session,
@@ -149,7 +208,7 @@ public class JmsOps
         }
     }
 
-    public Either<JMSException, Message> receive(final MessageConsumer consumer)
+    public Either<JMSException, Message> receiveMessage(final MessageConsumer consumer)
     {
         try
         {
