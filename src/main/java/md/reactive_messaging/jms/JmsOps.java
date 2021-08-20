@@ -1,9 +1,7 @@
 package md.reactive_messaging.jms;
 
 import lombok.extern.slf4j.Slf4j;
-import md.reactive_messaging.utils.Either;
-import md.reactive_messaging.utils.ThrowingConsumer;
-import md.reactive_messaging.utils.ThrowingFunction;
+import md.reactive_messaging.utils.*;
 
 import javax.jms.*;
 import java.util.function.Consumer;
@@ -15,6 +13,93 @@ import static md.reactive_messaging.utils.Either.right;
 @Slf4j
 public class JmsOps
 {
+    public static <T> Either<JMSException, T> consume
+            (
+                    final ThrowingConsumer<T, JMSException> consumer,
+                    final T argument,
+                    final String name
+            )
+    {
+        try
+        {
+            log.info("Attempting {}", name);
+            consumer.accept(argument);
+            log.info("Succeeded {}", name);
+            return right(argument);
+        }
+        catch (final JMSException e)
+        {
+            log.error("Failed {} - '{}'", name, e.getMessage());
+            return left(e);
+        }
+    }
+
+    public static <T, R> Either<JMSException, R> apply
+            (
+                    final ThrowingFunction<T, R, JMSException> function,
+                    final T argument,
+                    final String name
+            )
+    {
+        try
+        {
+            log.info("Attempting {}", name);
+            final R result = function.apply(argument);
+            log.info("Succeeded {}", name);
+            return right(result);
+        }
+        catch (final JMSException e)
+        {
+            log.error("Failed {} - '{}'", name, e.getMessage());
+            return left(e);
+        }
+    }
+
+    public static <T1, T2, R> Either<JMSException, R> applyBi
+            (
+                    final ThrowingBiFunction<T1, T2, R, JMSException> biFunction,
+                    final T1 argument1,
+                    final T2 argument2,
+                    final String name
+            )
+    {
+        try
+        {
+            log.info("Attempting {}", name);
+            final R result = biFunction.apply(argument1, argument2);
+            log.info("Succeeded {}", name);
+            return right(result);
+        }
+        catch (final JMSException e)
+        {
+            log.error("Failed {} - '{}'", name, e.getMessage());
+            return left(e);
+        }
+    }
+
+    public static <T1, T2, T3, R> Either<JMSException, R> applyTri
+            (
+                    final ThrowingTriFunction<T1, T2, T3, R, JMSException> triFunction,
+                    final T1 argument1,
+                    final T2 argument2,
+                    final T3 argument3,
+                    final String name
+            )
+    {
+        try
+        {
+            log.info("Attempting {}", name);
+            final R result = triFunction.apply(argument1, argument2, argument3);
+            log.info("Succeeded {}", name);
+            return right(result);
+        }
+        catch (final JMSException e)
+        {
+            log.error("Failed {} - '{}'", name, e.getMessage());
+            return left(e);
+        }
+    }
+
     public Either<JMSException, Connection> createConnection
             (
                     final ConnectionFactory factory,
@@ -36,7 +121,17 @@ public class JmsOps
         }
     }
 
-    public Either<JMSException, Connection> setExceptionListener
+    public Either<JMSException, QueueConnection> createQueueConnection
+            (
+                    final QueueConnectionFactory factory,
+                    final String username,
+                    final String password
+            )
+    {
+        return applyBi(factory::createQueueConnection, username, password, "create queue connection");
+    }
+
+    public Either<JMSException, ? extends Connection> setExceptionListener
             (
                     final Connection connection,
                     final Consumer<JMSException> onException
@@ -63,36 +158,29 @@ public class JmsOps
         }
     }
 
+    public Either<JMSException, QueueConnection> setExceptionListener
+            (
+                    final QueueConnection queueConnection,
+                    final Consumer<JMSException> onException
+            )
+    {
+
+        return consume(connection -> connection.setExceptionListener(onException::accept), queueConnection, "set exception listener on queue connection");
+    }
+
+    public Either<JMSException, QueueConnection> startQueueConnection(final QueueConnection queueConnection)
+    {
+        return consume(Connection::start, queueConnection, "start queue connection");
+    }
+
     public Either<JMSException, Connection> startConnection(final Connection connection)
     {
-        try
-        {
-            log.info("Starting connection {}", connection);
-            connection.start();
-            log.info("Started connection {}", connection);
-            return right(connection);
-        }
-        catch (final JMSException e)
-        {
-            log.error("Failed starting connection: {}", e.getMessage());
-            return left(e);
-        }
+        return consume(Connection::start, connection, "start connection");
     }
 
     public Either<JMSException, Connection> stopConnection(final Connection connection)
     {
-        try
-        {
-            log.info("Stopping connection {}", connection);
-            connection.stop();
-            log.info("Stopped connection {}", connection);
-            return right(connection);
-        }
-        catch (final JMSException e)
-        {
-            log.error("Failed stopping connection: {}", e.getMessage());
-            return left(e);
-        }
+        return consume(Connection::stop, connection, "stop queue connection");
     }
 
     public Either<JMSException, Connection> closeConnection(final Connection connection)
@@ -123,6 +211,27 @@ public class JmsOps
         catch (final JMSException e)
         {
             log.error("Failed creating session: {}", e.getMessage());
+            return left(e);
+        }
+    }
+
+    public Either<JMSException, QueueSession> createQueueSession
+            (
+                    final QueueConnection connection,
+                    final boolean transacted,
+                    final int acknowledgeMode
+            )
+    {
+        try
+        {
+            log.info("Creating queue session");
+            final QueueSession session = connection.createQueueSession(transacted, acknowledgeMode);
+            log.info("Created queue session {}", session);
+            return right(session);
+        }
+        catch (final JMSException e)
+        {
+            log.error("Failed creating queue session: {}", e.getMessage());
             return left(e);
         }
     }

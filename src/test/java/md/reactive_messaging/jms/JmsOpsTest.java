@@ -1,10 +1,11 @@
-package md.reactive_messaging.utils;
+package md.reactive_messaging.jms;
 
 import com.tibco.tibjms.TibjmsConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
-import md.reactive_messaging.jms.JmsOps;
+import md.reactive_messaging.utils.Either;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
+import org.junit.jupiter.api.RepeatedTest;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
@@ -64,6 +65,7 @@ final class JmsOpsTest
     @Test
     void consume_one_message()
     {
+
         final Either<JMSException, String> either =
                 OPS.createConnection(new TibjmsConnectionFactory(URL), USER, PASSWORD).flatMap(newConnection ->
                         OPS.setExceptionListener(newConnection, anyError -> log.error("", anyError)).flatMap(listenedConnection ->
@@ -93,5 +95,19 @@ final class JmsOpsTest
                 error -> log.error("", error),
                 message -> log.info("{}", message)
         );
+    }
+
+    @Order(3)
+    @RepeatedTest(100)
+    void produce_multiple_messages()
+    {
+        produce_one_message();
+    }
+
+    @Order(4)
+    @RepeatedTest(100)
+    void consume_multiple_messages()
+    {
+        consume_one_message();
     }
 }
