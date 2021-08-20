@@ -1,0 +1,69 @@
+package md.reactive_messaging.utils;
+
+import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Test;
+
+import static md.reactive_messaging.utils.Either.left;
+import static md.reactive_messaging.utils.Either.right;
+import static org.assertj.core.api.Assertions.assertThat;
+
+@Slf4j
+final class EitherTest
+{
+    private static final Either<String, Integer> LEFT = left("error");
+    private static final Either<String, Integer> RIGHT = right(23);
+
+    @Test
+    void construct()
+    {
+        assertThat(right(23)).isEqualTo(new Right<>(23));
+        assertThat(left("error")).isEqualTo(new Left<>("error"));
+    }
+
+    @Test
+    void destruct()
+    {
+        assertThat(RIGHT.rightOrDefault(null)).isEqualTo(23);
+        assertThat(LEFT.rightOrDefault(0)).isEqualTo(0);
+        assertThat(RIGHT.leftOrDefault("default")).isEqualTo("default");
+        assertThat(LEFT.leftOrDefault(null)).isEqualTo("error");
+    }
+
+    @Test
+    void function()
+    {
+        final String l = LEFT.apply(String::toUpperCase, null);
+        assertThat(l).isEqualTo("ERROR");
+        final Integer r = RIGHT.apply(null, n -> n * n);
+        assertThat(r).isEqualTo(529);
+    }
+
+    @Test
+    void functor()
+    {
+        final Either<String, Integer> l = LEFT.map(n -> n * n);
+        assertThat(l).isEqualTo(left("error"));
+        final Either<String, Integer> r = RIGHT.map(n -> n * n);
+        assertThat(r).isEqualTo(right(529));
+    }
+
+    @Test
+    void monad()
+    {
+        final Either<String, Integer> l = LEFT.flatMap(n -> right(n * n));
+        assertThat(l).isEqualTo(left("error"));
+        final Either<String, Integer> r1 = RIGHT.flatMap(n -> right(n * n));
+        assertThat(r1).isEqualTo(right(529));
+        final Either<String, Integer> r2 = RIGHT.flatMap(n -> left("error"));
+        assertThat(r2).isEqualTo(left("error"));
+    }
+
+    @Test
+    void bifunctor()
+    {
+        final Either<Integer, String> l = LEFT.bimap(e -> e.toUpperCase().length(), n -> Integer.toString(n * n));
+        assertThat(l).isEqualTo(left(5));
+        final Either<Integer, String> r = RIGHT.bimap(e -> e.toUpperCase().length(), n -> Integer.toString(n * n));
+        assertThat(r).isEqualTo(right("529"));
+    }
+}
