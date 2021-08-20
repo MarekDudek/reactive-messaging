@@ -29,10 +29,7 @@ final class JmsOpsTest
     {
         final Either<JMSException, Object> either =
                 OPS.createConnection(new TibjmsConnectionFactory(URL), USER, PASSWORD).flatMap(newConnection ->
-                        OPS.setExceptionListener(
-                                newConnection,
-                                anyError -> log.error("", anyError)
-                        ).flatMap(listenedConnection ->
+                        OPS.setExceptionListener(newConnection, anyError -> log.error("", anyError)).flatMap(listenedConnection ->
                                 OPS.createSession(listenedConnection).flatMap(session ->
                                         OPS.createQueue(session, QUEUE).flatMap(queue ->
                                                 OPS.createProducer(session, queue).flatMap(producer ->
@@ -43,7 +40,7 @@ final class JmsOpsTest
                                                                                             OPS::closeConnection
                                                                                     ).consume(
                                                                                             errorClosing -> log.warn("", errorClosing),
-                                                                                            closedConnectoin -> log.trace("{}", closedConnectoin)
+                                                                                            closedConnection -> log.trace("{}", closedConnection)
                                                                                     );
                                                                                     return sentMessage;
                                                                                 }
@@ -68,23 +65,21 @@ final class JmsOpsTest
     {
         final Either<JMSException, Message> either =
                 OPS.createConnection(new TibjmsConnectionFactory(URL), USER, PASSWORD).flatMap(newConnection ->
-                        OPS.setExceptionListener(
-                                newConnection,
-                                anyError -> log.error("", anyError)
-                        ).flatMap(listenedConnection ->
+                        OPS.setExceptionListener(newConnection, anyError -> log.error("", anyError)).flatMap(listenedConnection ->
                                 OPS.createSession(listenedConnection).flatMap(session ->
                                         OPS.createQueue(session, QUEUE).flatMap(queue ->
-                                                OPS.createConsumer(session, queue)).flatMap(consumer ->
-                                                OPS.startConnection(listenedConnection).flatMap(startedConnection ->
-                                                        OPS.receiveMessage(consumer).map(message -> {
-                                                                    OPS.stopConnection(startedConnection).flatMap(
-                                                                            OPS::stopConnection
-                                                                    ).consume(
-                                                                            errorClosing -> log.error("", errorClosing),
-                                                                            closedConnection -> log.trace("{}", closedConnection)
-                                                                    );
-                                                                    return message;
-                                                                }
+                                                OPS.createConsumer(session, queue).flatMap(consumer ->
+                                                        OPS.startConnection(listenedConnection).flatMap(startedConnection ->
+                                                                OPS.receiveMessage(consumer).map(message -> {
+                                                                            OPS.stopConnection(startedConnection).flatMap(
+                                                                                    OPS::stopConnection
+                                                                            ).consume(
+                                                                                    errorClosing -> log.error("", errorClosing),
+                                                                                    closedConnection -> log.trace("{}", closedConnection)
+                                                                            );
+                                                                            return message;
+                                                                        }
+                                                                )
                                                         )
                                                 )
                                         )
