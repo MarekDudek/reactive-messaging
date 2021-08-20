@@ -17,24 +17,27 @@ final class JmsOpsTest
     private static final JmsOps OPS = new JmsOps();
 
     @Test
-    void consume()
+    void consume_one_message()
     {
         OPS.createConnection(new TibjmsConnectionFactory(URL), USER, PASSWORD).flatMap(newConnection ->
-                OPS.setExceptionListener(newConnection,
+                OPS.setExceptionListener(
+                        newConnection,
                         exception -> log.error("", exception)
                 ).flatMap(listenedConnection ->
-                        OPS.createSession(newConnection).flatMap(session ->
+                        OPS.createSession(listenedConnection).flatMap(session ->
                                 OPS.createQueue(session, QUEUE).flatMap(queue ->
                                         OPS.createConsumer(session, queue)).flatMap(consumer ->
-                                        OPS.startConnection(listenedConnection).map(startedConnection ->
-                                                consumer
+                                        OPS.startConnection(listenedConnection).flatMap(startedConnection -> {
+                                                    OPS.receive(consumer).consume(
+                                                            exception -> log.error("", exception),
+                                                            message -> log.info("{}", message)
+                                                    );
+                                                    return OPS.closeConnection(startedConnection);
+                                                }
                                         )
                                 )
                         )
                 )
-        ).flatMap(OPS::receive).consume(
-                error -> log.error("", error),
-                message -> log.info("{}", message)
         );
     }
 }
