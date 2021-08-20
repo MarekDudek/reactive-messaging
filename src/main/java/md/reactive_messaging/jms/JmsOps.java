@@ -2,6 +2,8 @@ package md.reactive_messaging.jms;
 
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.utils.Either;
+import md.reactive_messaging.utils.ThrowingConsumer;
+import md.reactive_messaging.utils.ThrowingFunction;
 
 import javax.jms.*;
 import java.util.function.Consumer;
@@ -177,6 +179,46 @@ public class JmsOps
         catch (final JMSException e)
         {
             log.error("Failed creating text message: {}", e.getMessage());
+            return left(e);
+        }
+    }
+
+    public Either<JMSException, TextMessage> consumeTextMessage
+            (
+                    final TextMessage message,
+                    final ThrowingConsumer<TextMessage, JMSException> consumer
+            )
+    {
+        try
+        {
+            log.trace("Consuming text message");
+            consumer.accept(message);
+            log.trace("Consumed text message");
+            return right(message);
+        }
+        catch (JMSException e)
+        {
+            log.error("Error consuming text message");
+            return left(e);
+        }
+    }
+
+    public <R> Either<JMSException, R> applyMessage
+            (
+                    final Message message,
+                    final ThrowingFunction<Message, R, JMSException> function
+            )
+    {
+        try
+        {
+            log.trace("Applying text message");
+            final R result = function.apply(message);
+            log.trace("Applied text message");
+            return right(result);
+        }
+        catch (final JMSException e)
+        {
+            log.error("Error applying text message");
             return left(e);
         }
     }
