@@ -30,32 +30,39 @@ final class EitherTest
     }
 
     @Test
+    void consume()
+    {
+        RIGHT.consume(l -> log.error("{}", l), r -> log.trace("{}", r));
+        LEFT.consume(l -> log.trace("{}", l), r -> log.error("{}", r));
+    }
+
+    @Test
     void function()
     {
-        final String l = LEFT.apply(String::toUpperCase, null);
-        assertThat(l).isEqualTo("ERROR");
         final Integer r = RIGHT.apply(null, n -> n * n);
         assertThat(r).isEqualTo(529);
+        final String l = LEFT.apply(String::toUpperCase, null);
+        assertThat(l).isEqualTo("ERROR");
     }
 
     @Test
     void functor()
     {
-        final Either<String, Integer> l = LEFT.map(n -> n * n);
-        assertThat(l).isEqualTo(left("error"));
         final Either<String, Integer> r = RIGHT.map(n -> n * n);
         assertThat(r).isEqualTo(right(529));
+        final Either<String, Integer> l = LEFT.map(n -> n * n);
+        assertThat(l).isEqualTo(left("error"));
     }
 
     @Test
     void monad()
     {
-        final Either<String, Integer> l = LEFT.flatMap(n -> right(n * n));
-        assertThat(l).isEqualTo(left("error"));
         final Either<String, Integer> r1 = RIGHT.flatMap(n -> right(n * n));
         assertThat(r1).isEqualTo(right(529));
         final Either<String, Integer> r2 = RIGHT.flatMap(n -> left("error"));
         assertThat(r2).isEqualTo(left("error"));
+        final Either<String, Integer> l = LEFT.flatMap(n -> right(n * n));
+        assertThat(l).isEqualTo(left("error"));
     }
 
     @Test
