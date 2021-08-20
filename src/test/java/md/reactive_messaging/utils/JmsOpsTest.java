@@ -5,6 +5,9 @@ import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.jms.JmsOps;
 import org.junit.jupiter.api.Test;
 
+import javax.jms.JMSException;
+import javax.jms.Message;
+
 @Slf4j
 final class JmsOpsTest
 {
@@ -19,25 +22,29 @@ final class JmsOpsTest
     @Test
     void consume_one_message()
     {
-        OPS.createConnection(new TibjmsConnectionFactory(URL), USER, PASSWORD).flatMap(newConnection ->
-                OPS.setExceptionListener(
-                        newConnection,
-                        exception -> log.error("", exception)
-                ).flatMap(listenedConnection ->
-                        OPS.createSession(listenedConnection).flatMap(session ->
-                                OPS.createQueue(session, QUEUE).flatMap(queue ->
-                                        OPS.createConsumer(session, queue)).flatMap(consumer ->
-                                        OPS.startConnection(listenedConnection).flatMap(startedConnection -> {
-                                                    OPS.receive(consumer).consume(
-                                                            exception -> log.error("", exception),
-                                                            message -> log.info("{}", message)
-                                                    );
-                                                    return OPS.closeConnection(startedConnection);
-                                                }
+        final Either<JMSException, Message> either =
+                OPS.createConnection(new TibjmsConnectionFactory(URL), USER, PASSWORD).flatMap(newConnection ->
+                        OPS.setExceptionListener(
+                                newConnection,
+                                exception -> log.error("", exception)
+                        ).flatMap(listenedConnection ->
+                                OPS.createSession(listenedConnection).flatMap(session ->
+                                        OPS.createQueue(session, QUEUE).flatMap(queue ->
+                                                OPS.createConsumer(session, queue)).flatMap(consumer ->
+                                                OPS.startConnection(listenedConnection).flatMap(startedConnection ->
+                                                        OPS.receive(consumer).map(message -> {
+                                                                    OPS.closeConnection(startedConnection);
+                                                                    return message;
+                                                                }
+                                                        )
+                                                )
                                         )
                                 )
                         )
-                )
+                );
+        either.consume(
+                error -> log.error("", error),
+                message -> log.info("{}", message)
         );
     }
 }
