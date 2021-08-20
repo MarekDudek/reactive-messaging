@@ -77,7 +77,7 @@ final class JmsOpsTest
                                                                             final Either<JMSException, String> extractedMessage =
                                                                                     OPS.applyMessage(receivedMessage, message -> ((TextMessage) message).getText());
                                                                             OPS.stopConnection(startedConnection).flatMap(
-                                                                                    OPS::stopConnection
+                                                                                    OPS::closeConnection
                                                                             ).consume(
                                                                                     errorClosing -> log.error("", errorClosing),
                                                                                     closedConnection -> log.trace("{}", closedConnection)
