@@ -10,7 +10,6 @@ import org.junit.jupiter.api.TestMethodOrder;
 
 import javax.jms.JMSException;
 import javax.jms.Message;
-import javax.jms.TextMessage;
 
 @Slf4j
 @TestMethodOrder(OrderAnnotation.class)
@@ -28,7 +27,7 @@ final class JmsOpsTest
     @Test
     void produce_one_message()
     {
-        final Either<JMSException, TextMessage> either =
+        final Either<JMSException, Object> either =
                 OPS.createConnection(new TibjmsConnectionFactory(URL), USER, PASSWORD).flatMap(newConnection ->
                         OPS.setExceptionListener(
                                 newConnection,
@@ -38,21 +37,24 @@ final class JmsOpsTest
                                         OPS.createQueue(session, QUEUE).flatMap(queue ->
                                                 OPS.createProducer(session, queue).flatMap(producer ->
                                                         OPS.startConnection(listenedConnection).flatMap(startedConnection ->
-                                                                OPS.createTextMessage(session).map(message -> {
-                                                                            OPS.sendMessage(producer, message).ifPresent(
-                                                                                    errorSending -> log.error("", errorSending)
-                                                                            );
-                                                                            OPS.closeConnection(startedConnection).consume(
-                                                                                    errorClosing -> log.error("", errorClosing),
-                                                                                    closedConnection -> log.trace("{}", closedConnection)
-                                                                            );
-                                                                            return message;
-                                                                        }
+                                                                OPS.createTextMessage(session).map(newMessage ->
+                                                                        OPS.sendMessage(producer, newMessage).map(sentMessage -> {
+                                                                                    OPS.stopConnection(startedConnection).flatMap(
+                                                                                            OPS::closeConnection
+                                                                                    ).consume(
+                                                                                            errorClosing -> log.warn("", errorClosing),
+                                                                                            closedConnectoin -> log.trace("{}", closedConnectoin)
+                                                                                    );
+                                                                                    return sentMessage;
+                                                                                }
+                                                                        )
+
                                                                 )
                                                         )
                                                 )
                                         )
-                                ))
+                                )
+                        )
                 );
         either.consume(
                 error -> log.error("", error),
@@ -75,7 +77,9 @@ final class JmsOpsTest
                                                 OPS.createConsumer(session, queue)).flatMap(consumer ->
                                                 OPS.startConnection(listenedConnection).flatMap(startedConnection ->
                                                         OPS.receiveMessage(consumer).map(message -> {
-                                                                    OPS.closeConnection(startedConnection).consume(
+                                                                    OPS.stopConnection(startedConnection).flatMap(
+                                                                            OPS::stopConnection
+                                                                    ).consume(
                                                                             errorClosing -> log.error("", errorClosing),
                                                                             closedConnection -> log.trace("{}", closedConnection)
                                                                     );

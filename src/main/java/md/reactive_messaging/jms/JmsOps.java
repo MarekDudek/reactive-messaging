@@ -4,11 +4,8 @@ import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.utils.Either;
 
 import javax.jms.*;
-import java.util.Optional;
 import java.util.function.Consumer;
 
-import static java.util.Optional.empty;
-import static java.util.Optional.of;
 import static md.reactive_messaging.utils.Either.left;
 import static md.reactive_messaging.utils.Either.right;
 
@@ -76,6 +73,22 @@ public class JmsOps
         catch (final JMSException e)
         {
             log.error("Failed starting connection: {}", e.getMessage());
+            return left(e);
+        }
+    }
+
+    public Either<JMSException, Connection> stopConnection(final Connection connection)
+    {
+        try
+        {
+            log.info("Stopping connection {}", connection);
+            connection.stop();
+            log.info("Stopped connection {}", connection);
+            return right(connection);
+        }
+        catch (final JMSException e)
+        {
+            log.error("Failed stopping connection: {}", e.getMessage());
             return left(e);
         }
     }
@@ -168,7 +181,7 @@ public class JmsOps
         }
     }
 
-    public Optional<JMSException> sendMessage
+    public Either<JMSException, Message> sendMessage
             (
                     final MessageProducer producer,
                     final Message message
@@ -179,12 +192,12 @@ public class JmsOps
             log.trace("Sending message");
             producer.send(message);
             log.trace("Sent message");
-            return empty();
+            return right(message);
         }
         catch (final JMSException e)
         {
             log.error("Failed sending message: {}", e.getMessage());
-            return of(e);
+            return left(e);
         }
     }
 
