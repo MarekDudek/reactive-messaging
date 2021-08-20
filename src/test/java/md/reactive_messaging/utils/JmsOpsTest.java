@@ -73,7 +73,7 @@ final class JmsOpsTest
                                                         OPS.startConnection(listenedConnection).flatMap(startedConnection ->
                                                                 OPS.receiveMessage(consumer).flatMap(receivedMessage -> {
                                                                             final Either<JMSException, String> extractedMessage =
-                                                                                    OPS.applyMessage(receivedMessage, m -> ((TextMessage) m).getText());
+                                                                                    OPS.applyMessage(receivedMessage, message -> ((TextMessage) message).getText());
                                                                             OPS.stopConnection(startedConnection).flatMap(
                                                                                     OPS::stopConnection
                                                                             ).consume(
