@@ -1,6 +1,5 @@
 package md.reactive_messaging.jms;
 
-import com.tibco.tibjms.TibjmsQueueConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.utils.Either;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
@@ -10,9 +9,9 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 
 import javax.jms.JMSException;
-import javax.jms.TextMessage;
 
 import static javax.jms.Session.AUTO_ACKNOWLEDGE;
+import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
 @TestMethodOrder(OrderAnnotation.class)
@@ -25,78 +24,22 @@ final class JmsOpsTest
 
     // System under test
     private static final JmsOps OPS = new JmsOps();
+    private static final JmsManager MANAGER = new JmsManager(OPS);
 
     @Order(1)
     @Test
     void produce_one_message()
     {
-        final Either<JMSException, Object> either =
-                OPS.createQueueConnection(new TibjmsQueueConnectionFactory(URL), USER, PASSWORD).flatMap(newConnection ->
-                        OPS.setExceptionListenerOnQueueConnection(newConnection, anyError -> log.error("", anyError)).flatMap(listenedConnection ->
-                                OPS.createQueueSession(listenedConnection, false, AUTO_ACKNOWLEDGE).flatMap(session ->
-                                        OPS.createQueue(session, QUEUE).flatMap(queue ->
-                                                OPS.createProducer(session, queue).flatMap(producer ->
-                                                        OPS.startQueueConnection(listenedConnection).flatMap(startedConnection ->
-                                                                OPS.createTextMessage(session).map(newMessage ->
-                                                                        OPS.consumeTextMessage(newMessage, message -> message.setText("some text")).flatMap(updatedMessage ->
-                                                                                OPS.sendMessage(producer, updatedMessage).map(sentMessage -> {
-                                                                                            OPS.stopConnection(startedConnection).flatMap(
-                                                                                                    OPS::closeConnection
-                                                                                            ).consume(
-                                                                                                    errorClosing -> log.warn("", errorClosing),
-                                                                                                    closedConnection -> log.trace("{}", closedConnection)
-                                                                                            );
-                                                                                            return sentMessage;
-                                                                                        }
-                                                                                )
-                                                                        )
-                                                                )
-                                                        )
-                                                )
-                                        )
-                                )
-                        )
-                );
-        either.consume(
-                error -> log.error("", error),
-                message -> log.info("{}", message)
-        );
+        final Either<JMSException, Object> either = MANAGER.produceOneTextMessageToQueue(URL, USER, PASSWORD, QUEUE, "some text", false, AUTO_ACKNOWLEDGE);
+        assertThat(either.isRight()).isTrue();
     }
 
     @Order(2)
     @Test
     void consume_one_message()
     {
-
-        final Either<JMSException, String> either =
-                OPS.createQueueConnection(new TibjmsQueueConnectionFactory(URL), USER, PASSWORD).flatMap(newConnection ->
-                        OPS.setExceptionListenerOnQueueConnection(newConnection, anyError -> log.error("", anyError)).flatMap(listenedConnection ->
-                                OPS.createQueueSession(listenedConnection, false, AUTO_ACKNOWLEDGE).flatMap(session ->
-                                        OPS.createQueue(session, QUEUE).flatMap(queue ->
-                                                OPS.createConsumer(session, queue).flatMap(consumer ->
-                                                        OPS.startQueueConnection(listenedConnection).flatMap(startedConnection ->
-                                                                OPS.receiveMessage(consumer).flatMap(receivedMessage -> {
-                                                                            final Either<JMSException, String> extractedMessage =
-                                                                                    OPS.applyMessage(receivedMessage, message -> ((TextMessage) message).getText());
-                                                                            OPS.stopConnection(startedConnection).flatMap(
-                                                                                    OPS::closeConnection
-                                                                            ).consume(
-                                                                                    errorClosing -> log.error("", errorClosing),
-                                                                                    closedConnection -> log.trace("{}", closedConnection)
-                                                                            );
-                                                                            return extractedMessage;
-                                                                        }
-                                                                )
-                                                        )
-                                                )
-                                        )
-                                )
-                        )
-                );
-        either.consume(
-                error -> log.error("", error),
-                message -> log.info("{}", message)
-        );
+        final Either<JMSException, String> either = MANAGER.consumeOneTextMessageFromQueue(URL, USER, PASSWORD, QUEUE, false, AUTO_ACKNOWLEDGE);
+        assertThat(either.isRight()).isTrue();
     }
 
     @Order(3)

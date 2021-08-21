@@ -1,122 +1,136 @@
 package md.reactive_messaging.jms;
 
-import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.utils.*;
 
 import javax.jms.JMSException;
+import java.util.Optional;
+import java.util.function.BiConsumer;
 
+import static java.util.Optional.empty;
+import static java.util.Optional.of;
 import static md.reactive_messaging.utils.Either.left;
 import static md.reactive_messaging.utils.Either.right;
 import static org.springframework.util.StringUtils.capitalize;
 
-@Slf4j
 enum JmsOpsHelper
 {
     ;
 
-    public static <T> Either<JMSException, T> consume
+    public static <R> Either<JMSException, R> get
             (
-                    final ThrowingConsumer<T, JMSException> consumer,
-                    final T argument,
-                    final String name
+                    ThrowingSupplier<R, JMSException> supplier,
+                    String name,
+                    BiConsumer<String, Object> attempt,
+                    Consumer3<String, Object, Object> success,
+                    Consumer3<String, Object, Object> failure
             )
     {
         try
         {
-            log.info("Attempting '{}'", capitalize(name));
-            consumer.accept(argument);
-            log.info("Succeeded '{}'", capitalize(name));
-            return right(argument);
+            attempt.accept("Attempting '{}'", capitalize(name));
+            final R result = supplier.get();
+            success.accept("Succeeded '{}' with '{}'", capitalize(name), result);
+            return right(result);
         }
-        catch (final JMSException e)
+        catch (JMSException e)
         {
-            log.error("Failed '{}' - '{}'", capitalize(name), e.getMessage());
+            failure.accept("Failed '{}' - '{}'", capitalize(name), e.getMessage());
             return left(e);
         }
     }
 
-    public static <R> Either<JMSException, R> get
+    public static Optional<JMSException> run
             (
-                    final ThrowingSupplier<R, JMSException> supplier,
-                    final String name
+                    ThrowingRunnable<JMSException> runnable,
+                    String name,
+                    BiConsumer<String, Object> attempt,
+                    BiConsumer<String, Object> success,
+                    Consumer3<String, Object, Object> failure
             )
     {
         try
         {
-            log.info("Attempting '{}'", capitalize(name));
-            final R result = supplier.get();
-            log.info("Succeeded '{}' with '{}'", capitalize(name), result);
-            return right(result);
+            attempt.accept("Attempting '{}'", capitalize(name));
+            runnable.run();
+            success.accept("Succeeded '{}'", capitalize(name));
+            return empty();
         }
-        catch (final JMSException e)
+        catch (JMSException e)
         {
-            log.error("Failed '{}' - '{}'", capitalize(name), e.getMessage());
+            failure.accept("Failed '{}' - '{}'", capitalize(name), e.getMessage());
+            return of(e);
+        }
+    }
+
+    public static <T> Either<JMSException, T> accept
+            (
+                    ThrowingConsumer<T, JMSException> consumer,
+                    T argument,
+                    String name,
+                    Consumer3<String, Object, Object> attempt,
+                    BiConsumer<String, Object> success,
+                    Consumer3<String, Object, Object> failure
+            )
+    {
+        try
+        {
+            attempt.accept("Attempting '{}' with {}", capitalize(name), argument);
+            consumer.accept(argument);
+            success.accept("Succeeded '{}'", capitalize(name));
+            return right(argument);
+        }
+        catch (JMSException e)
+        {
+            failure.accept("Failed '{}' - '{}'", capitalize(name), e.getMessage());
             return left(e);
         }
     }
 
     public static <T, R> Either<JMSException, R> apply
             (
-                    final ThrowingFunction<T, R, JMSException> function,
-                    final T argument,
-                    final String name
+                    ThrowingFunction<T, R, JMSException> function,
+                    T argument,
+                    String name,
+                    Consumer3<String, Object, Object> attempt,
+                    Consumer3<String, Object, Object> success,
+                    Consumer3<String, Object, Object> failure
             )
     {
         try
         {
-            log.info("Attempting '{}'", capitalize(name));
+            attempt.accept("Attempting '{}' with {}", capitalize(name), argument);
             final R result = function.apply(argument);
-            log.info("Succeeded '{}' with '{}'", capitalize(name), result);
+            success.accept("Succeeded '{}' with '{}'", capitalize(name), result);
             return right(result);
         }
-        catch (final JMSException e)
+        catch (JMSException e)
         {
-            log.error("Failed '{}' - '{}'", capitalize(name), e.getMessage());
+            failure.accept("Failed '{}' - '{}'", capitalize(name), e.getMessage());
             return left(e);
         }
     }
 
     public static <T1, T2, R> Either<JMSException, R> apply
             (
-                    final ThrowingBiFunction<T1, T2, R, JMSException> biFunction,
-                    final T1 argument1,
-                    final T2 argument2,
-                    final String name
+                    ThrowingBiFunction<T1, T2, R, JMSException> biFunction,
+                    T1 argument1,
+                    T2 argument2,
+                    String name,
+                    Consumer4<String, Object, Object, Object> attempt,
+                    Consumer3<String, Object, Object> success,
+                    Consumer3<String, Object, Object> failure
             )
     {
         try
         {
-            log.info("Attempting '{}'", capitalize(name));
+            attempt.accept("Attempting '{}' with {} and {}", capitalize(name), argument1, argument2);
             final R result = biFunction.apply(argument1, argument2);
-            log.info("Succeeded '{}' with '{}'", capitalize(name), result);
+            success.accept("Succeeded '{}' with '{}'", capitalize(name), result);
             return right(result);
         }
-        catch (final JMSException e)
+        catch (JMSException e)
         {
-            log.error("Failed '{}' - '{}'", capitalize(name), e.getMessage());
-            return left(e);
-        }
-    }
-
-    public static <T1, T2, T3, R> Either<JMSException, R> apply
-            (
-                    final ThrowingTriFunction<T1, T2, T3, R, JMSException> triFunction,
-                    final T1 argument1,
-                    final T2 argument2,
-                    final T3 argument3,
-                    final String name
-            )
-    {
-        try
-        {
-            log.info("Attempting '{}'", capitalize(name));
-            final R result = triFunction.apply(argument1, argument2, argument3);
-            log.info("Succeeded '{}' with '{}'", capitalize(name), result);
-            return right(result);
-        }
-        catch (final JMSException e)
-        {
-            log.error("Failed '{}' - '{}'", capitalize(name), e.getMessage());
+            failure.accept("Failed '{}' - '{}'", capitalize(name), e.getMessage());
             return left(e);
         }
     }
