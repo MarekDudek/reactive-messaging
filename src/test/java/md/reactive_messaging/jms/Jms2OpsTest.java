@@ -12,8 +12,12 @@ import javax.jms.*;
 import java.util.Optional;
 
 import static md.reactive_messaging.jms.TestTibcoEmsConfig.*;
+import static md.reactive_messaging.jms.utils.FailErrorConsumer.FailErrorConsumer;
+import static md.reactive_messaging.jms.utils.FailExceptionListener.FailExceptionListener;
+import static md.reactive_messaging.jms.utils.FailJmsErrorConsumer.FailJmsErrorConsumer;
+import static md.reactive_messaging.jms.utils.LogMessageConsumer.LogMessageConsumer;
+import static md.reactive_messaging.jms.utils.LogMessageListener.LogMessageListener;
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.junit.jupiter.api.Assertions.fail;
 
 @Slf4j
 @TestMethodOrder(OrderAnnotation.class)
@@ -31,8 +35,8 @@ final class Jms2OpsTest
                 factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();
         context.consume(
-                e -> fail(),
-                c -> OPS.setExceptionListener(c, error -> fail()).ifPresent(exception -> fail())
+                FailJmsErrorConsumer,
+                c -> OPS.setExceptionListener(c, FailExceptionListener).ifPresent(FailJmsErrorConsumer)
         );
         final Either<JMSRuntimeException, Queue> queue =
                 context.flatMap(c -> OPS.createQueue(c, QUEUE_NAME));
@@ -59,8 +63,8 @@ final class Jms2OpsTest
                 factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();
         context.consume(
-                e -> fail(),
-                c -> OPS.setExceptionListener(c, error -> fail()).ifPresent(exception -> fail())
+                FailJmsErrorConsumer,
+                c -> OPS.setExceptionListener(c, FailExceptionListener).ifPresent(FailJmsErrorConsumer)
         );
         final Either<JMSRuntimeException, Queue> queue =
                 context.flatMap(c -> OPS.createQueue(c, QUEUE_NAME));
@@ -86,8 +90,8 @@ final class Jms2OpsTest
                 factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();
         context.consume(
-                e -> fail(),
-                c -> OPS.setExceptionListener(c, error -> fail()).ifPresent(exception -> fail())
+                FailJmsErrorConsumer,
+                c -> OPS.setExceptionListener(c, FailExceptionListener).ifPresent(FailJmsErrorConsumer)
         );
         final Either<JMSRuntimeException, Queue> queue =
                 context.flatMap(c -> OPS.createQueue(c, QUEUE_NAME));
@@ -96,12 +100,8 @@ final class Jms2OpsTest
                 context.flatMap(OPS::createProducer);
         assertThat(producer.isRight()).isTrue();
         producer.consume(
-                e -> fail(),
-                p -> OPS.setAsynch(p, new CompletionListenerImpl(
-                                message -> log.info("Message sending completed {}", message),
-                                (message, error) -> log.error("Error sending message {}", message, error)
-                        )
-                )
+                FailJmsErrorConsumer,
+                p -> OPS.setAsynch(p, new CompletionListenerImpl(LogMessageConsumer, FailErrorConsumer)).ifPresent(FailJmsErrorConsumer)
         );
         final Either<JMSRuntimeException, Optional<JMSRuntimeException>> status =
                 producer.flatMap(p -> queue.map(q -> OPS.sendTextMessage(p, q, "asynchronous text message")));
@@ -122,8 +122,8 @@ final class Jms2OpsTest
                 factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();
         context.consume(
-                e -> fail(),
-                c -> OPS.setExceptionListener(c, error -> fail()).ifPresent(exception -> fail())
+                FailJmsErrorConsumer,
+                c -> OPS.setExceptionListener(c, FailExceptionListener).ifPresent(FailJmsErrorConsumer)
         );
         final Either<JMSRuntimeException, Queue> queue =
                 context.flatMap(c -> OPS.createQueue(c, QUEUE_NAME));
@@ -132,7 +132,7 @@ final class Jms2OpsTest
                 context.flatMap(c -> queue.flatMap(q -> OPS.createConsumer(c, q)));
         assertThat(consumer.isRight()).isTrue();
         final Either<JMSRuntimeException, Optional<JMSRuntimeException>> status =
-                consumer.map(c -> OPS.setMessageListener(c, message -> log.info("Message heard '{}'", message)));
+                consumer.map(c -> OPS.setMessageListener(c, LogMessageListener));
         assertThat(status.isRight()).isTrue();
         assertThat(status.rightOr(null)).isEmpty();
         Thread.sleep(1);

@@ -1,6 +1,6 @@
 package md.reactive_messaging.jms;
 
-import md.reactive_messaging.functional.*;
+import md.reactive_messaging.functional.Either;
 import md.reactive_messaging.functional.consumer.TriConsumer;
 import md.reactive_messaging.functional.throwing.*;
 
@@ -14,11 +14,11 @@ import static md.reactive_messaging.functional.Either.left;
 import static md.reactive_messaging.functional.Either.right;
 import static org.springframework.util.StringUtils.capitalize;
 
-enum JmsOpsHelper
+enum JmsMetaOps
 {
     ;
 
-    public static <R> Either<JMSException, R> get
+    public static <R> Either<JMSException, R> supplieer
             (
                     ThrowingSupplier<R, JMSException> supplier,
                     String name,
@@ -40,7 +40,7 @@ enum JmsOpsHelper
         }
     }
 
-    public static Optional<JMSException> run
+    public static Optional<JMSException> runnable
             (
                     ThrowingRunnable<JMSException> runnable,
                     String name,
@@ -62,7 +62,7 @@ enum JmsOpsHelper
         }
     }
 
-    public static <T> Either<JMSException, T> accept
+    public static <T> Either<JMSException, T> consumer
             (
                     ThrowingConsumer<T, JMSException> consumer,
                     T argument,
@@ -85,7 +85,7 @@ enum JmsOpsHelper
         }
     }
 
-    public static <T, R> Either<JMSException, R> apply
+    public static <T, R> Either<JMSException, R> function
             (
                     ThrowingFunction<T, R, JMSException> function,
                     T argument,
@@ -108,7 +108,7 @@ enum JmsOpsHelper
         }
     }
 
-    public static <T1, T2, R> Either<JMSException, R> apply
+    public static <T1, T2, R> Either<JMSException, R> biFunction
             (
                     ThrowingBiFunction<T1, T2, R, JMSException> biFunction,
                     T1 argument1,
