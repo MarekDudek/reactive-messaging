@@ -94,6 +94,22 @@ public class Jms2Ops
         }
     }
 
+    public Optional<JMSRuntimeException> setAsynch(JMSProducer producer, CompletionListener completionListener)
+    {
+        try
+        {
+            log.debug("Setting asynch {}", completionListener);
+            producer.setAsync(completionListener);
+            log.debug("Set asynch");
+            return empty();
+        }
+        catch (JMSRuntimeException e)
+        {
+            log.error("Setting asynch failed", e);
+            return of(e);
+        }
+    }
+
     public Optional<JMSRuntimeException> sendTextMessage(JMSProducer producer, Destination destination, String text)
     {
         try
@@ -123,6 +139,22 @@ public class Jms2Ops
         {
             log.error("Creating consumer failed", e);
             return left(e);
+        }
+    }
+
+    public Optional<JMSRuntimeException> setMessageListener(JMSConsumer consumer, MessageListener listener)
+    {
+        try
+        {
+            log.debug("Setting message listener to {}", listener);
+            consumer.setMessageListener(listener);
+            log.debug("Set message listener");
+            return empty();
+        }
+        catch (JMSRuntimeException e)
+        {
+            log.debug("Setting message listener failed", e);
+            return of(e);
         }
     }
 
