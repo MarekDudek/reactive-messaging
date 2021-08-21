@@ -4,7 +4,7 @@ import com.tibco.tibjms.TibjmsQueueConnectionFactory;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import md.reactive_messaging.utils.Either;
+import md.reactive_messaging.functional.Either;
 
 import javax.jms.JMSException;
 import javax.jms.TextMessage;

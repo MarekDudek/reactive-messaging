@@ -1,4 +1,4 @@
-package md.reactive_messaging.utils;
+package md.reactive_messaging.functional;
 
 import lombok.NonNull;
 import lombok.Value;
@@ -53,12 +53,12 @@ public interface Either<L, R>
         return apply(l -> false, r -> true);
     }
 
-    default L leftOrDefault(final L value)
+    default L leftOr(final L value)
     {
         return apply(left -> left, right -> value);
     }
 
-    default R rightOrDefault(final R value)
+    default R rightOr(final R value)
     {
         return apply(left -> value, right -> right);
     }
@@ -73,7 +73,7 @@ public interface Either<L, R>
         return apply(Either::left, function);
     }
 
-    default <T, U> Either<T, U> bimap(final Function<L, T> leftFunction, final Function<R, U> rightFunction)
+    default <T, U> Either<T, U> biMap(final Function<L, T> leftFunction, final Function<R, U> rightFunction)
     {
         return apply(left -> left(leftFunction.apply(left)), right -> right(rightFunction.apply(right)));
     }

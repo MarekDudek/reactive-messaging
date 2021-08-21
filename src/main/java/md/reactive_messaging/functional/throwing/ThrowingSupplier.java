@@ -1,4 +1,4 @@
-package md.reactive_messaging.utils;
+package md.reactive_messaging.functional.throwing;
 
 @FunctionalInterface
 public interface ThrowingSupplier<R, E extends Exception>

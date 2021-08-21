@@ -1,10 +1,10 @@
-package md.reactive_messaging.utils;
+package md.reactive_messaging.functional;
 
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 
-import static md.reactive_messaging.utils.Either.left;
-import static md.reactive_messaging.utils.Either.right;
+import static md.reactive_messaging.functional.Either.left;
+import static md.reactive_messaging.functional.Either.right;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
@@ -23,10 +23,10 @@ final class EitherTest
     @Test
     void destruct()
     {
-        assertThat(RIGHT.rightOrDefault(null)).isEqualTo(23);
-        assertThat(LEFT.rightOrDefault(0)).isEqualTo(0);
-        assertThat(RIGHT.leftOrDefault("default")).isEqualTo("default");
-        assertThat(LEFT.leftOrDefault(null)).isEqualTo("error");
+        assertThat(RIGHT.rightOr(null)).isEqualTo(23);
+        assertThat(LEFT.rightOr(0)).isEqualTo(0);
+        assertThat(RIGHT.leftOr("default")).isEqualTo("default");
+        assertThat(LEFT.leftOr(null)).isEqualTo("error");
     }
 
     @Test
@@ -68,9 +68,9 @@ final class EitherTest
     @Test
     void bifunctor()
     {
-        final Either<Integer, String> l = LEFT.bimap(e -> e.toUpperCase().length(), n -> Integer.toString(n * n));
+        final Either<Integer, String> l = LEFT.biMap(e -> e.toUpperCase().length(), n -> Integer.toString(n * n));
         assertThat(l).isEqualTo(left(5));
-        final Either<Integer, String> r = RIGHT.bimap(e -> e.toUpperCase().length(), n -> Integer.toString(n * n));
+        final Either<Integer, String> r = RIGHT.biMap(e -> e.toUpperCase().length(), n -> Integer.toString(n * n));
         assertThat(r).isEqualTo(right("529"));
     }
 }

@@ -1,9 +1,9 @@
 package md.reactive_messaging.jms;
 
 import lombok.extern.slf4j.Slf4j;
-import md.reactive_messaging.utils.Either;
-import md.reactive_messaging.utils.ThrowingConsumer;
-import md.reactive_messaging.utils.ThrowingFunction;
+import md.reactive_messaging.functional.Either;
+import md.reactive_messaging.functional.throwing.ThrowingConsumer;
+import md.reactive_messaging.functional.throwing.ThrowingFunction;
 
 import javax.jms.*;
 import java.util.function.Consumer;

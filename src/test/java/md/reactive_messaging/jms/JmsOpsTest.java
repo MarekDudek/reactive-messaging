@@ -1,7 +1,7 @@
 package md.reactive_messaging.jms;
 
 import lombok.extern.slf4j.Slf4j;
-import md.reactive_messaging.utils.Either;
+import md.reactive_messaging.functional.Either;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.RepeatedTest;

@@ -1,6 +1,8 @@
 package md.reactive_messaging.jms;
 
-import md.reactive_messaging.utils.*;
+import md.reactive_messaging.functional.*;
+import md.reactive_messaging.functional.consumer.TriConsumer;
+import md.reactive_messaging.functional.throwing.*;
 
 import javax.jms.JMSException;
 import java.util.Optional;
@@ -8,8 +10,8 @@ import java.util.function.BiConsumer;
 
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
-import static md.reactive_messaging.utils.Either.left;
-import static md.reactive_messaging.utils.Either.right;
+import static md.reactive_messaging.functional.Either.left;
+import static md.reactive_messaging.functional.Either.right;
 import static org.springframework.util.StringUtils.capitalize;
 
 enum JmsOpsHelper
@@ -21,7 +23,7 @@ enum JmsOpsHelper
                     ThrowingSupplier<R, JMSException> supplier,
                     String name,
                     BiConsumer<String, Object[]> log,
-                    Consumer3<String, Object, Object> failure
+                    TriConsumer<String, Object, Object> failure
             )
     {
         try
@@ -43,7 +45,7 @@ enum JmsOpsHelper
                     ThrowingRunnable<JMSException> runnable,
                     String name,
                     BiConsumer<String, Object[]> log,
-                    Consumer3<String, Object, Object> failure
+                    TriConsumer<String, Object, Object> failure
             )
     {
         try
@@ -66,7 +68,7 @@ enum JmsOpsHelper
                     T argument,
                     String name,
                     BiConsumer<String, Object[]> log,
-                    Consumer3<String, Object, Object> failure
+                    TriConsumer<String, Object, Object> failure
             )
     {
         try
@@ -89,7 +91,7 @@ enum JmsOpsHelper
                     T argument,
                     String name,
                     BiConsumer<String, Object[]> log,
-                    Consumer3<String, Object, Object> failure
+                    TriConsumer<String, Object, Object> failure
             )
     {
         try
@@ -113,7 +115,7 @@ enum JmsOpsHelper
                     T2 argument2,
                     String name,
                     BiConsumer<String, Object[]> log,
-                    Consumer3<String, Object, Object> failure
+                    TriConsumer<String, Object, Object> failure
             )
     {
         try
