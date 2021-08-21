@@ -25,10 +25,10 @@ final class Jms2OpsTest
     @Test
     void synchronous_send_text_message()
     {
-        final ConnectionFactory factory =
-                new TibjmsConnectionFactory(URL);
+        final Either<JMSRuntimeException, ConnectionFactory> factory =
+                OPS.instantiateConnectionFactory(TibjmsConnectionFactory::new, URL);
         final Either<JMSRuntimeException, JMSContext> context =
-                OPS.createContext(factory, USER_NAME, PASSWORD);
+                factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();
         context.consume(
                 e -> fail(),
@@ -53,10 +53,10 @@ final class Jms2OpsTest
     @Test
     void synchronous_receive_text_message()
     {
-        final ConnectionFactory factory =
-                new TibjmsConnectionFactory(URL);
+        final Either<JMSRuntimeException, ConnectionFactory> factory =
+                OPS.instantiateConnectionFactory(TibjmsConnectionFactory::new, URL);
         final Either<JMSRuntimeException, JMSContext> context =
-                OPS.createContext(factory, USER_NAME, PASSWORD);
+                factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();
         context.consume(
                 e -> fail(),
@@ -80,10 +80,10 @@ final class Jms2OpsTest
     @Test
     void asynchronous_send_text_message()
     {
-        final ConnectionFactory factory =
-                new TibjmsConnectionFactory(URL);
+        final Either<JMSRuntimeException, ConnectionFactory> factory =
+                OPS.instantiateConnectionFactory(TibjmsConnectionFactory::new, URL);
         final Either<JMSRuntimeException, JMSContext> context =
-                OPS.createContext(factory, USER_NAME, PASSWORD);
+                factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();
         context.consume(
                 e -> fail(),
@@ -116,10 +116,10 @@ final class Jms2OpsTest
     @Test
     void asynchronous_receive_text_message() throws InterruptedException
     {
-        final ConnectionFactory factory =
-                new TibjmsConnectionFactory(URL);
+        final Either<JMSRuntimeException, ConnectionFactory> factory =
+                OPS.instantiateConnectionFactory(TibjmsConnectionFactory::new, URL);
         final Either<JMSRuntimeException, JMSContext> context =
-                OPS.createContext(factory, USER_NAME, PASSWORD);
+                factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();
         context.consume(
                 e -> fail(),

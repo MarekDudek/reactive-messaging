@@ -5,6 +5,7 @@ import md.reactive_messaging.functional.Either;
 
 import javax.jms.*;
 import java.util.Optional;
+import java.util.function.Function;
 
 import static java.util.Optional.empty;
 import static java.util.Optional.of;
@@ -14,6 +15,22 @@ import static md.reactive_messaging.functional.Either.right;
 @Slf4j
 public class Jms2Ops
 {
+    public Either<JMSRuntimeException, ConnectionFactory> instantiateConnectionFactory(Function<String, ConnectionFactory> constructor, String url)
+    {
+        try
+        {
+            log.info("Creating connection factory to {}", url);
+            final ConnectionFactory factory = constructor.apply(url);
+            log.info("Created connection factory {}", factory);
+            return right(factory);
+        }
+        catch (JMSRuntimeException e)
+        {
+            log.error("Error creating connection factory", e);
+            return left(e);
+        }
+    }
+
     public Either<JMSRuntimeException, JMSContext> createContext(ConnectionFactory factory, String userName, String password)
     {
         try
