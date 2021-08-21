@@ -62,22 +62,6 @@ public class Jms2Ops
         }
     }
 
-    public Either<JMSRuntimeException, JMSProducer> createProducer(JMSContext context)
-    {
-        try
-        {
-            log.debug("Creating producer");
-            final JMSProducer producer = context.createProducer();
-            log.debug("Created producer succeeded {}", producer);
-            return right(producer);
-        }
-        catch (JMSRuntimeException e)
-        {
-            log.debug("Creating producer failed", e);
-            return left(e);
-        }
-    }
-
     public Either<JMSRuntimeException, Queue> createQueue(JMSContext context, String queueName)
     {
         try
@@ -90,6 +74,22 @@ public class Jms2Ops
         catch (JMSRuntimeException e)
         {
             log.error("Creating queue failed", e);
+            return left(e);
+        }
+    }
+
+    public Either<JMSRuntimeException, JMSProducer> createProducer(JMSContext context)
+    {
+        try
+        {
+            log.debug("Creating producer");
+            final JMSProducer producer = context.createProducer();
+            log.debug("Created producer succeeded {}", producer);
+            return right(producer);
+        }
+        catch (JMSRuntimeException e)
+        {
+            log.error("Creating producer failed", e);
             return left(e);
         }
     }
@@ -107,6 +107,38 @@ public class Jms2Ops
         {
             log.error("Sending text message failed", e);
             return of(e);
+        }
+    }
+
+    public Either<JMSRuntimeException, JMSConsumer> createConsumer(JMSContext context, Queue queue)
+    {
+        try
+        {
+            log.debug("Creating consumer");
+            final JMSConsumer consumer = context.createConsumer(queue);
+            log.debug("Created consumer succeeded {}", consumer);
+            return right(consumer);
+        }
+        catch (JMSRuntimeException e)
+        {
+            log.error("Creating consumer failed", e);
+            return left(e);
+        }
+    }
+
+    public <BODY> Either<JMSRuntimeException, BODY> receiveBody(JMSConsumer consumer, Class<BODY> klass)
+    {
+        try
+        {
+            log.trace("Receiving body with class {}", klass);
+            final BODY body = consumer.receiveBody(klass);
+            log.trace("Received body '{}'", body);
+            return right(body);
+        }
+        catch (JMSRuntimeException e)
+        {
+            log.debug("Receiving body failed", e);
+            return left(e);
         }
     }
 }
