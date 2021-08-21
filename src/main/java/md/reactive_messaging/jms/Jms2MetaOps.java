@@ -2,7 +2,9 @@ package md.reactive_messaging.jms;
 
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
+import md.reactive_messaging.functional.throwing.ThrowingFunction;
 
+import javax.jms.JMSException;
 import javax.jms.JMSRuntimeException;
 import java.util.Optional;
 import java.util.function.*;
@@ -34,6 +36,29 @@ public enum Jms2MetaOps
             return right(r);
         }
         catch (JMSRuntimeException e)
+        {
+            err.accept("Failure {}", asArray(name, e));
+            return left(e);
+        }
+    }
+
+    public static <A, R> Either<JMSException, R> throwingFunction
+            (
+                    ThrowingFunction<A, R, JMSException> f,
+                    A a,
+                    String name,
+                    BiConsumer<String, Object[]> out,
+                    BiConsumer<String, Object[]> err
+            )
+    {
+        try
+        {
+            out.accept("Attempt {} ({})", asArray(name, a));
+            final R r = f.apply(a);
+            out.accept("Success {} {}", asArray(name, r));
+            return right(r);
+        }
+        catch (JMSException e)
         {
             err.accept("Failure {}", asArray(name, e));
             return left(e);

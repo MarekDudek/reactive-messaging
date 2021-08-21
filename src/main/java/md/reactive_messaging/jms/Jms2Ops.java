@@ -2,6 +2,7 @@ package md.reactive_messaging.jms;
 
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
+import md.reactive_messaging.functional.throwing.ThrowingFunction;
 
 import javax.jms.*;
 import java.util.Optional;
@@ -68,5 +69,10 @@ public class Jms2Ops
     public <BODY> Either<JMSRuntimeException, BODY> receiveBody(JMSConsumer consumer, Class<BODY> klass)
     {
         return function(consumer::receiveBody, klass, "receive-body", log::trace, ERROR);
+    }
+
+    public <R> Either<JMSException, R> applyToMessage(Message message, ThrowingFunction<Message, R, JMSException> function)
+    {
+        return throwingFunction(function, message, "apply-to-message", log::trace, log::error);
     }
 }

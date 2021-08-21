@@ -12,10 +12,10 @@ import javax.jms.*;
 import java.util.Optional;
 
 import static md.reactive_messaging.jms.TestTibcoEmsConfig.*;
+import static md.reactive_messaging.jms.utils.CheckIdMessageConsumer.CheckIdMessageConsumer;
 import static md.reactive_messaging.jms.utils.FailErrorConsumer.FailErrorConsumer;
 import static md.reactive_messaging.jms.utils.FailExceptionListener.FailExceptionListener;
 import static md.reactive_messaging.jms.utils.FailJmsErrorConsumer.FailJmsErrorConsumer;
-import static md.reactive_messaging.jms.utils.LogMessageConsumer.LogMessageConsumer;
 import static md.reactive_messaging.jms.utils.LogMessageListener.LogMessageListener;
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -101,7 +101,7 @@ final class Jms2OpsTest
         assertThat(producer.isRight()).isTrue();
         producer.consume(
                 FailJmsErrorConsumer,
-                p -> OPS.setAsynch(p, new CompletionListenerImpl(LogMessageConsumer, FailErrorConsumer)).ifPresent(FailJmsErrorConsumer)
+                p -> OPS.setAsynch(p, new CompletionListenerImpl(CheckIdMessageConsumer, FailErrorConsumer)).ifPresent(FailJmsErrorConsumer)
         );
         final Either<JMSRuntimeException, Optional<JMSRuntimeException>> status =
                 producer.flatMap(p -> queue.map(q -> OPS.sendTextMessage(p, q, "asynchronous text message")));
