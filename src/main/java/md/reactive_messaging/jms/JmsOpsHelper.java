@@ -20,16 +20,15 @@ enum JmsOpsHelper
             (
                     ThrowingSupplier<R, JMSException> supplier,
                     String name,
-                    BiConsumer<String, Object> attempt,
-                    Consumer3<String, Object, Object> success,
+                    BiConsumer<String, Object[]> log,
                     Consumer3<String, Object, Object> failure
             )
     {
         try
         {
-            attempt.accept("Attempting '{}'", capitalize(name));
+            log.accept("Attempting '{}'", new Object[]{capitalize(name)});
             final R result = supplier.get();
-            success.accept("Succeeded '{}' with '{}'", capitalize(name), result);
+            log.accept("Succeeded '{}' with {}", new Object[]{capitalize(name), result});
             return right(result);
         }
         catch (JMSException e)
@@ -66,16 +65,15 @@ enum JmsOpsHelper
                     ThrowingConsumer<T, JMSException> consumer,
                     T argument,
                     String name,
-                    Consumer3<String, Object, Object> attempt,
-                    BiConsumer<String, Object> success,
+                    BiConsumer<String, Object[]> log,
                     Consumer3<String, Object, Object> failure
             )
     {
         try
         {
-            attempt.accept("Attempting '{}' with {}", capitalize(name), argument);
+            log.accept("Attempting '{}' with {}", new Object[]{capitalize(name), argument});
             consumer.accept(argument);
-            success.accept("Succeeded '{}'", capitalize(name));
+            log.accept("Succeeded '{}'", new Object[]{capitalize(name)});
             return right(argument);
         }
         catch (JMSException e)
@@ -114,16 +112,15 @@ enum JmsOpsHelper
                     T1 argument1,
                     T2 argument2,
                     String name,
-                    Consumer4<String, Object, Object, Object> attempt,
-                    Consumer3<String, Object, Object> success,
+                    BiConsumer<String, Object[]> log,
                     Consumer3<String, Object, Object> failure
             )
     {
         try
         {
-            attempt.accept("Attempting '{}' with {} and {}", capitalize(name), argument1, argument2);
+            log.accept("Attempting '{}' with {} and {}", new Object[]{capitalize(name), argument1, argument2});
             final R result = biFunction.apply(argument1, argument2);
-            success.accept("Succeeded '{}' with '{}'", capitalize(name), result);
+            log.accept("Succeeded '{}' with '{}'", new Object[]{capitalize(name), result});
             return right(result);
         }
         catch (JMSException e)
