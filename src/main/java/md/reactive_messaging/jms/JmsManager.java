@@ -16,7 +16,7 @@ public final class JmsManager
     @NonNull
     private final JmsOps ops;
 
-    public Either<JMSException, Object> produceOneTextMessageToQueue
+    public Either<JMSException, Object> sendOneQueueApi
             (
                     String url,
                     String user,
@@ -28,7 +28,7 @@ public final class JmsManager
             )
     {
         return ops.createQueueConnection(new TibjmsQueueConnectionFactory(url), user, password).flatMap(newConnection ->
-                ops.setExceptionListenerOnQueueConnection(newConnection, anyError -> log.error("", anyError)).flatMap(listenedConnection ->
+                ops.setExceptionListenerOnQueueConnection(newConnection, exception -> log.error("", exception)).flatMap(listenedConnection ->
                         ops.createQueueSession(listenedConnection, transacted, acknowledgeMode).flatMap(session ->
                                 ops.createQueue(session, queueName).flatMap(queue ->
                                         ops.createProducer(session, queue).flatMap(producer ->
@@ -55,7 +55,7 @@ public final class JmsManager
         );
     }
 
-    public Either<JMSException, String> consumeOneTextMessageFromQueue
+    public Either<JMSException, String> receiveOneQueueApi
             (
                     String url,
                     String user,
@@ -66,7 +66,7 @@ public final class JmsManager
             )
     {
         return ops.createQueueConnection(new TibjmsQueueConnectionFactory(url), user, password).flatMap(newConnection ->
-                ops.setExceptionListenerOnQueueConnection(newConnection, anyError -> log.error("", anyError)).flatMap(listenedConnection ->
+                ops.setExceptionListenerOnQueueConnection(newConnection, exception -> log.error("", exception)).flatMap(listenedConnection ->
                         ops.createQueueSession(listenedConnection, transacted, acknowledgeMode).flatMap(session ->
                                 ops.createQueue(session, queueName).flatMap(queue ->
                                         ops.createConsumer(session, queue).flatMap(consumer ->

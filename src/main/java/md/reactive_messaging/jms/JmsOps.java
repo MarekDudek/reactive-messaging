@@ -6,7 +6,6 @@ import md.reactive_messaging.functional.throwing.ThrowingConsumer;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 
 import javax.jms.*;
-import java.util.function.Consumer;
 
 import static md.reactive_messaging.jms.JmsOpsHelper.*;
 
@@ -24,14 +23,14 @@ public class JmsOps
         return apply(factory::createQueueConnection, username, password, "create queue connection", log::info, log::error);
     }
 
-    public Either<JMSException, ? extends Connection> setExceptionListener(Connection connection, Consumer<JMSException> onException)
+    public Either<JMSException, ? extends Connection> setExceptionListener(Connection connection, ExceptionListener listener)
     {
-        return accept(c -> c.setExceptionListener(onException::accept), connection, "set exception listener", log::debug, log::error);
+        return accept(c -> c.setExceptionListener(listener), connection, "set exception listener", log::debug, log::error);
     }
 
-    public Either<JMSException, QueueConnection> setExceptionListenerOnQueueConnection(QueueConnection queueConnection, Consumer<JMSException> onException)
+    public Either<JMSException, QueueConnection> setExceptionListenerOnQueueConnection(QueueConnection queueConnection, ExceptionListener listener)
     {
-        return accept(c -> c.setExceptionListener(onException::accept), queueConnection, "set exception listener on queue connection", log::debug, log::error);
+        return accept(c -> c.setExceptionListener(listener), queueConnection, "set exception listener on queue connection", log::debug, log::error);
     }
 
     public Either<JMSException, Connection> startConnection(Connection connection)

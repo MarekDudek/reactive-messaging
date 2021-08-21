@@ -30,7 +30,7 @@ final class JmsOpsTest
     @Test
     void produce_one_message()
     {
-        final Either<JMSException, Object> either = MANAGER.produceOneTextMessageToQueue(URL, USER, PASSWORD, QUEUE, "some text", false, AUTO_ACKNOWLEDGE);
+        final Either<JMSException, Object> either = MANAGER.sendOneQueueApi(URL, USER, PASSWORD, QUEUE, "some text", false, AUTO_ACKNOWLEDGE);
         assertThat(either.isRight()).isTrue();
     }
 
@@ -38,7 +38,7 @@ final class JmsOpsTest
     @Test
     void consume_one_message()
     {
-        final Either<JMSException, String> either = MANAGER.consumeOneTextMessageFromQueue(URL, USER, PASSWORD, QUEUE, false, AUTO_ACKNOWLEDGE);
+        final Either<JMSException, String> either = MANAGER.receiveOneQueueApi(URL, USER, PASSWORD, QUEUE, false, AUTO_ACKNOWLEDGE);
         assertThat(either.isRight()).isTrue();
     }
 
