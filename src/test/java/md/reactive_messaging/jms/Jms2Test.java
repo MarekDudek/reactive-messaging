@@ -20,10 +20,10 @@ final class Jms2Test
     void synchronous_send_text_message()
     {
         final ConnectionFactory factory = new TibjmsConnectionFactory(URL);
-        try (final JMSContext context = factory.createContext(USER, PASSWORD);)
+        try (final JMSContext context = factory.createContext(USER_NAME, PASSWORD);)
         {
-            final Queue queue = context.createQueue(QUEUE);
             context.setExceptionListener(exception -> log.error("Caught by exception listener", exception));
+            final Queue queue = context.createQueue(QUEUE_NAME);
             final JMSProducer producer = context.createProducer();
             producer.send(queue, "synchronous text message");
             log.info("Synchronously sent");
@@ -39,10 +39,10 @@ final class Jms2Test
     void synchronous_receive_text_message()
     {
         final ConnectionFactory factory = new TibjmsConnectionFactory(URL);
-        try (final JMSContext context = factory.createContext(USER, PASSWORD);)
+        try (final JMSContext context = factory.createContext(USER_NAME, PASSWORD);)
         {
-            final Queue queue = context.createQueue(QUEUE);
             context.setExceptionListener(exception -> log.error("Caught by exception listener", exception));
+            final Queue queue = context.createQueue(QUEUE_NAME);
             final JMSConsumer consumer = context.createConsumer(queue);
             final String body = consumer.receiveBody(String.class);
             log.info("Synchronously received '{}'", body);
@@ -58,9 +58,9 @@ final class Jms2Test
     void asynchronous_send_text_message()
     {
         final ConnectionFactory factory = new TibjmsConnectionFactory(URL);
-        try (final JMSContext context = factory.createContext(USER, PASSWORD);)
+        try (final JMSContext context = factory.createContext(USER_NAME, PASSWORD);)
         {
-            final Queue queue = context.createQueue(QUEUE);
+            final Queue queue = context.createQueue(QUEUE_NAME);
             final JMSProducer producer = context.createProducer();
             producer.setAsync(
                     new CompletionListener()
@@ -99,8 +99,8 @@ final class Jms2Test
     void asynchronous_receive_text_message() throws InterruptedException
     {
         final ConnectionFactory factory = new TibjmsConnectionFactory(URL);
-        final JMSContext context = factory.createContext(USER, PASSWORD);
-        final Queue queue = context.createQueue(QUEUE);
+        final JMSContext context = factory.createContext(USER_NAME, PASSWORD);
+        final Queue queue = context.createQueue(QUEUE_NAME);
         context.setExceptionListener(exception -> log.error("Caught by exception listener", exception));
         final JMSConsumer consumer = context.createConsumer(queue);
         consumer.setMessageListener(

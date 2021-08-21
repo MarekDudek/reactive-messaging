@@ -5,7 +5,7 @@ enum TestTibcoEmsConfig
     ;
 
     static final String URL = "tcp://localhost:7222";
-    static final String USER = "some-user";
+    static final String USER_NAME = "some-user";
     static final String PASSWORD = "some-password";
-    static final String QUEUE = "some-queue";
+    static final String QUEUE_NAME = "some-queue";
 }
