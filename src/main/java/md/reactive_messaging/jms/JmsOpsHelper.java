@@ -26,9 +26,9 @@ enum JmsOpsHelper
     {
         try
         {
-            log.accept("Attempting '{}'", new Object[]{capitalize(name)});
+            log.accept("Attempting '{}'", asArray(capitalize(name)));
             final R result = supplier.get();
-            log.accept("Succeeded '{}' with {}", new Object[]{capitalize(name), result});
+            log.accept("Succeeded '{}' with {}", asArray(capitalize(name), result));
             return right(result);
         }
         catch (JMSException e)
@@ -42,15 +42,15 @@ enum JmsOpsHelper
             (
                     ThrowingRunnable<JMSException> runnable,
                     String name,
-                    BiConsumer<String, Object> log,
+                    BiConsumer<String, Object[]> log,
                     Consumer3<String, Object, Object> failure
             )
     {
         try
         {
-            log.accept("Attempting '{}'", capitalize(name));
+            log.accept("Attempting '{}'", asArray(capitalize(name)));
             runnable.run();
-            log.accept("Succeeded '{}'", capitalize(name));
+            log.accept("Succeeded '{}'", asArray(capitalize(name)));
             return empty();
         }
         catch (JMSException e)
@@ -71,9 +71,9 @@ enum JmsOpsHelper
     {
         try
         {
-            log.accept("Attempting '{}' with {}", new Object[]{capitalize(name), argument});
+            log.accept("Attempting '{}' with {}", asArray(capitalize(name), argument));
             consumer.accept(argument);
-            log.accept("Succeeded '{}'", new Object[]{capitalize(name)});
+            log.accept("Succeeded '{}'", asArray(capitalize(name)));
             return right(argument);
         }
         catch (JMSException e)
@@ -88,15 +88,15 @@ enum JmsOpsHelper
                     ThrowingFunction<T, R, JMSException> function,
                     T argument,
                     String name,
-                    Consumer3<String, Object, Object> log,
+                    BiConsumer<String, Object[]> log,
                     Consumer3<String, Object, Object> failure
             )
     {
         try
         {
-            log.accept("Attempting '{}' with {}", capitalize(name), argument);
+            log.accept("Attempting '{}' with {}", asArray(capitalize(name), argument));
             final R result = function.apply(argument);
-            log.accept("Succeeded '{}' with '{}'", capitalize(name), result);
+            log.accept("Succeeded '{}' with '{}'", asArray(capitalize(name), result));
             return right(result);
         }
         catch (JMSException e)
@@ -118,9 +118,9 @@ enum JmsOpsHelper
     {
         try
         {
-            log.accept("Attempting '{}' with {} and {}", new Object[]{capitalize(name), argument1, argument2});
+            log.accept("Attempting '{}' with {} and {}", asArray(capitalize(name), argument1, argument2));
             final R result = biFunction.apply(argument1, argument2);
-            log.accept("Succeeded '{}' with '{}'", new Object[]{capitalize(name), result});
+            log.accept("Succeeded '{}' with '{}'", asArray(capitalize(name), result));
             return right(result);
         }
         catch (JMSException e)
@@ -128,5 +128,10 @@ enum JmsOpsHelper
             failure.accept("Failed '{}' - '{}'", capitalize(name), e.getMessage());
             return left(e);
         }
+    }
+
+    private static Object[] asArray(Object... objects)
+    {
+        return objects;
     }
 }
