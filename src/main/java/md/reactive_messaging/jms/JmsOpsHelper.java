@@ -43,16 +43,15 @@ enum JmsOpsHelper
             (
                     ThrowingRunnable<JMSException> runnable,
                     String name,
-                    BiConsumer<String, Object> attempt,
-                    BiConsumer<String, Object> success,
+                    BiConsumer<String, Object> log,
                     Consumer3<String, Object, Object> failure
             )
     {
         try
         {
-            attempt.accept("Attempting '{}'", capitalize(name));
+            log.accept("Attempting '{}'", capitalize(name));
             runnable.run();
-            success.accept("Succeeded '{}'", capitalize(name));
+            log.accept("Succeeded '{}'", capitalize(name));
             return empty();
         }
         catch (JMSException e)
@@ -91,16 +90,15 @@ enum JmsOpsHelper
                     ThrowingFunction<T, R, JMSException> function,
                     T argument,
                     String name,
-                    Consumer3<String, Object, Object> attempt,
-                    Consumer3<String, Object, Object> success,
+                    Consumer3<String, Object, Object> log,
                     Consumer3<String, Object, Object> failure
             )
     {
         try
         {
-            attempt.accept("Attempting '{}' with {}", capitalize(name), argument);
+            log.accept("Attempting '{}' with {}", capitalize(name), argument);
             final R result = function.apply(argument);
-            success.accept("Succeeded '{}' with '{}'", capitalize(name), result);
+            log.accept("Succeeded '{}' with '{}'", capitalize(name), result);
             return right(result);
         }
         catch (JMSException e)

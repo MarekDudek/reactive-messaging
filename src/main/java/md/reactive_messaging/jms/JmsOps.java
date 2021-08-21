@@ -27,32 +27,32 @@ public class JmsOps
 
     public Either<JMSException, ? extends Connection> setExceptionListener(Connection connection, Consumer<JMSException> onException)
     {
-        return accept(c -> c.setExceptionListener(onException::accept), connection, "set exception listener", log::info, log::info, log::error);
+        return accept(c -> c.setExceptionListener(onException::accept), connection, "set exception listener", log::debug, log::debug, log::error);
     }
 
     public Either<JMSException, QueueConnection> setExceptionListenerOnQueueConnection(QueueConnection queueConnection, Consumer<JMSException> onException)
     {
-        return accept(c -> c.setExceptionListener(onException::accept), queueConnection, "set exception listener on queue connection", log::info, log::info, log::error);
+        return accept(c -> c.setExceptionListener(onException::accept), queueConnection, "set exception listener on queue connection", log::debug, log::debug, log::error);
     }
 
     public Either<JMSException, Connection> startConnection(Connection connection)
     {
-        return accept(Connection::start, connection, "start connection", log::info, log::info, log::error);
+        return accept(Connection::start, connection, "start connection", log::debug, log::debug, log::error);
     }
 
     public Either<JMSException, QueueConnection> startQueueConnection(QueueConnection queueConnection)
     {
-        return accept(QueueConnection::start, queueConnection, "start queue connection", log::info, log::info, log::error);
+        return accept(QueueConnection::start, queueConnection, "start queue connection", log::debug, log::debug, log::error);
     }
 
     public Either<JMSException, Connection> stopConnection(Connection connection)
     {
-        return accept(Connection::stop, connection, "stop connection", log::info, log::info, log::error);
+        return accept(Connection::stop, connection, "stop connection", log::debug, log::debug, log::error);
     }
 
     public Either<JMSException, QueueConnection> stopQueueConnection(QueueConnection queueConnection)
     {
-        return accept(QueueConnection::stop, queueConnection, "stop queue connection", log::info, log::info, log::error);
+        return accept(QueueConnection::stop, queueConnection, "stop queue connection", log::debug, log::debug, log::error);
     }
 
     public Either<JMSException, Connection> closeConnection(Connection connection)
@@ -67,22 +67,22 @@ public class JmsOps
 
     public Either<JMSException, Session> createSession(Connection connection)
     {
-        return get(connection::createSession, "create session", log::info, log::info, log::error);
+        return get(connection::createSession, "create session", log::debug, log::debug, log::error);
     }
 
     public Either<JMSException, QueueSession> createQueueSession(QueueConnection connection, boolean transacted, int acknowledgeMode)
     {
-        return apply(connection::createQueueSession, transacted, acknowledgeMode, "create queue session", log::info, log::info, log::error);
+        return apply(connection::createQueueSession, transacted, acknowledgeMode, "create queue session", log::debug, log::debug, log::error);
     }
 
     public Either<JMSException, Queue> createQueue(Session session, String queueName)
     {
-        return apply(session::createQueue, queueName, "create queue", log::info, log::info, log::error);
+        return apply(session::createQueue, queueName, "create queue", log::debug, log::error);
     }
 
     public Either<JMSException, MessageProducer> createProducer(Session session, Queue queue)
     {
-        return apply(session::createProducer, queue, "create producer", log::info, log::info, log::error);
+        return apply(session::createProducer, queue, "create producer", log::debug, log::error);
     }
 
     public Either<JMSException, TextMessage> createTextMessage(Session session)
@@ -97,17 +97,17 @@ public class JmsOps
 
     public <R> Either<JMSException, R> applyMessage(Message message, ThrowingFunction<Message, R, JMSException> function)
     {
-        return apply(function, message, "apply text message", log::trace, log::trace, log::error);
+        return apply(function, message, "apply text message", log::trace, log::error);
     }
 
     public Either<JMSException, Message> sendMessage(MessageProducer producer, Message message)
     {
-        return accept(producer::send, message, "send message", log::trace, log::info, log::error);
+        return accept(producer::send, message, "send message", log::trace, log::trace, log::error);
     }
 
     public Either<JMSException, MessageConsumer> createConsumer(Session session, Queue queue)
     {
-        return apply(session::createConsumer, queue, "create consumer", log::info, log::info, log::error);
+        return apply(session::createConsumer, queue, "create consumer", log::debug, log::error);
     }
 
     public Either<JMSException, Message> receiveMessage(final MessageConsumer consumer)
