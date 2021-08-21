@@ -11,17 +11,13 @@ import org.junit.jupiter.api.TestMethodOrder;
 import javax.jms.JMSException;
 
 import static javax.jms.Session.AUTO_ACKNOWLEDGE;
+import static md.reactive_messaging.jms.TestTibcoEmsConfig.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
 @TestMethodOrder(OrderAnnotation.class)
 final class JmsOpsTest
 {
-    private static final String URL = "tcp://localhost:7222";
-    private static final String USER = "some-user";
-    private static final String PASSWORD = "some-password";
-    private static final String QUEUE = "some-queue";
-
     // System under test
     private static final JmsOps OPS = new JmsOps();
     private static final JmsManager MANAGER = new JmsManager(OPS);
