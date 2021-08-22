@@ -36,16 +36,16 @@ public final class JmsSimplifiedApiManager
         return
                 ops.instantiateConnectionFactory(constructor, url).flatMap(factory ->
                         ops.createContext(factory, userName, password).flatMap(context -> {
-                                    final Either<JMSRuntimeException, Object> sent =
+                                    Either<JMSRuntimeException, Object> sent =
                                             ops.createQueue(context, queueName).flatMap(queue ->
                                                     ops.createProducer(context).flatMap(producer -> {
-                                                                final Optional<JMSRuntimeException> error =
+                                                                Optional<JMSRuntimeException> error =
                                                                         ops.sendTextMessage(producer, queue, text);
                                                                 return fromOptional(error, NO_ERROR);
                                                             }
                                                     )
                                             );
-                                    final Optional<JMSRuntimeException> closed = ops.closeContext(context);
+                                    Optional<JMSRuntimeException> closed = ops.closeContext(context);
                                     return sent.isLeft() ? sent : fromOptional(closed, NO_ERROR);
                                 }
                         )
@@ -65,10 +65,10 @@ public final class JmsSimplifiedApiManager
         return
                 ops.instantiateConnectionFactory(constructor, url).flatMap(factory ->
                         ops.createContext(factory, userName, password).flatMap(context -> {
-                                    final Either<JMSRuntimeException, Object> sent =
+                                    Either<JMSRuntimeException, Object> sent =
                                             ops.createQueue(context, queueName).flatMap(queue ->
                                                     ops.createProducer(context).flatMap(producer -> {
-                                                                final Optional<JMSRuntimeException> error =
+                                                                Optional<JMSRuntimeException> error =
                                                                         texts.map(text ->
                                                                                         ops.sendTextMessage(producer, queue, text)
                                                                                 ).
@@ -77,7 +77,7 @@ public final class JmsSimplifiedApiManager
                                                             }
                                                     )
                                             );
-                                    final Optional<JMSRuntimeException> closed = ops.closeContext(context);
+                                    Optional<JMSRuntimeException> closed = ops.closeContext(context);
                                     return sent.isLeft() ? sent : fromOptional(closed, NO_ERROR);
                                 }
                         )
