@@ -1,7 +1,7 @@
 package md.reactive_messaging.jms.utils;
 
 import lombok.extern.slf4j.Slf4j;
-import md.reactive_messaging.jms.Jms2Ops;
+import md.reactive_messaging.jms.JmsSimplifiedApiOps;
 
 import javax.jms.Message;
 import java.util.function.Consumer;
@@ -14,7 +14,7 @@ public enum CheckIdMessageConsumer implements Consumer<Message>
 {
     CheckIdMessageConsumer;
 
-    private static final Jms2Ops OPS = new Jms2Ops();
+    private static final JmsSimplifiedApiOps OPS = new JmsSimplifiedApiOps();
 
     @Override
     public void accept(Message message)

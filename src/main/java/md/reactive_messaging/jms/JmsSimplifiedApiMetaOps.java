@@ -15,7 +15,7 @@ import static md.reactive_messaging.functional.Either.left;
 import static md.reactive_messaging.functional.Either.right;
 
 @Slf4j
-public enum Jms2MetaOps
+public enum JmsSimplifiedApiMetaOps
 {
     ;
 

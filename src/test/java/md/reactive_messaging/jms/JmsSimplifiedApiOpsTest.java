@@ -21,9 +21,9 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
 @TestMethodOrder(OrderAnnotation.class)
-final class Jms2OpsTest
+final class JmsSimplifiedApiOpsTest
 {
-    private static final Jms2Ops OPS = new Jms2Ops();
+    private static final JmsSimplifiedApiOps OPS = new JmsSimplifiedApiOps();
 
     @Order(1)
     @Test

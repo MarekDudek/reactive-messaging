@@ -2,11 +2,8 @@ package md.reactive_messaging.jms;
 
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.junit.jupiter.api.Order;
-import org.junit.jupiter.api.RepeatedTest;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.TestMethodOrder;
 
 import javax.jms.JMSException;
 
@@ -16,11 +13,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
 @TestMethodOrder(OrderAnnotation.class)
-final class JmsOpsTest
+@Disabled
+final class JmsLegacyApiOpsTest
 {
     // System under test
-    private static final JmsOps OPS = new JmsOps();
-    private static final JmsManager MANAGER = new JmsManager(OPS);
+    private static final JmsLegacyApiOps OPS = new JmsLegacyApiOps();
+    private static final JmsLegacyApiManager MANAGER = new JmsLegacyApiManager(OPS);
 
     @Order(1)
     @Test

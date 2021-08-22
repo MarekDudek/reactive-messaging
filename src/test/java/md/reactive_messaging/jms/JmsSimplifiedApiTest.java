@@ -2,6 +2,7 @@ package md.reactive_messaging.jms;
 
 import com.tibco.tibjms.TibjmsConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -13,14 +14,15 @@ import static md.reactive_messaging.TestTibcoEmsConfig.*;
 
 @Slf4j
 @TestMethodOrder(OrderAnnotation.class)
-final class Jms2Test
+@Disabled
+final class JmsSimplifiedApiTest
 {
     @Order(1)
     @Test
     void synchronous_send_text_message()
     {
         final ConnectionFactory factory = new TibjmsConnectionFactory(URL);
-        try (final JMSContext context = factory.createContext(USER_NAME, PASSWORD);)
+        try (final JMSContext context = factory.createContext(USER_NAME, PASSWORD))
         {
             context.setExceptionListener(exception -> log.error("Caught by exception listener", exception));
             final Queue queue = context.createQueue(QUEUE_NAME);
@@ -39,7 +41,7 @@ final class Jms2Test
     void synchronous_receive_text_message()
     {
         final ConnectionFactory factory = new TibjmsConnectionFactory(URL);
-        try (final JMSContext context = factory.createContext(USER_NAME, PASSWORD);)
+        try (final JMSContext context = factory.createContext(USER_NAME, PASSWORD))
         {
             context.setExceptionListener(exception -> log.error("Caught by exception listener", exception));
             final Queue queue = context.createQueue(QUEUE_NAME);
@@ -58,7 +60,7 @@ final class Jms2Test
     void asynchronous_send_text_message()
     {
         final ConnectionFactory factory = new TibjmsConnectionFactory(URL);
-        try (final JMSContext context = factory.createContext(USER_NAME, PASSWORD);)
+        try (final JMSContext context = factory.createContext(USER_NAME, PASSWORD))
         {
             final Queue queue = context.createQueue(QUEUE_NAME);
             final JMSProducer producer = context.createProducer();

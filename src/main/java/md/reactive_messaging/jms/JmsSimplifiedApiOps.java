@@ -9,10 +9,10 @@ import java.util.Optional;
 import java.util.function.BiConsumer;
 import java.util.function.Function;
 
-import static md.reactive_messaging.jms.Jms2MetaOps.*;
+import static md.reactive_messaging.jms.JmsSimplifiedApiMetaOps.*;
 
 @Slf4j
-public class Jms2Ops
+public class JmsSimplifiedApiOps
 {
     private static final BiConsumer<String, Object[]> ERROR = log::error;
 

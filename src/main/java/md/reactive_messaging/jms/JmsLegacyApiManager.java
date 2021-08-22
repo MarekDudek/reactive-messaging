@@ -11,10 +11,10 @@ import javax.jms.TextMessage;
 
 @Slf4j
 @RequiredArgsConstructor
-public final class JmsManager
+public final class JmsLegacyApiManager
 {
     @NonNull
-    private final JmsOps ops;
+    private final JmsLegacyApiOps ops;
 
     public Either<JMSException, Object> sendOneQueueApi
             (

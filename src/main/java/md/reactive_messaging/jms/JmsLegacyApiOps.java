@@ -7,11 +7,11 @@ import md.reactive_messaging.functional.throwing.ThrowingFunction;
 
 import javax.jms.*;
 
-import static md.reactive_messaging.jms.JmsMetaOps.*;
+import static md.reactive_messaging.jms.JmsLegacyApiMetaOps.*;
 
 
 @Slf4j
-public class JmsOps
+public class JmsLegacyApiOps
 {
     public Either<JMSException, Connection> createConnection(ConnectionFactory factory, String username, String password)
     {

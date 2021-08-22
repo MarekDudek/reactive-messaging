@@ -14,7 +14,7 @@ import static md.reactive_messaging.functional.Either.left;
 import static md.reactive_messaging.functional.Either.right;
 import static org.springframework.util.StringUtils.capitalize;
 
-enum JmsMetaOps
+enum JmsLegacyApiMetaOps
 {
     ;
 
