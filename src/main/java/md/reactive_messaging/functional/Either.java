@@ -86,6 +86,7 @@ public interface Either<L, R>
         return apply(Either::right, Either::left);
     }
 
+    @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
     static <L, R> Either<L, R> fromOptional(final Optional<L> optional, final R right)
     {
         return optional.map(Either::<L, R>left).orElse(right(right));

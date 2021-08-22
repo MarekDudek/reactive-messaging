@@ -1,5 +1,6 @@
 package md.reactive_messaging.reactive;
 
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.jms.JmsSimplifiedApiOps;
@@ -13,6 +14,7 @@ import java.util.function.Function;
 @RequiredArgsConstructor
 public class ReactiveOps
 {
+    @NonNull
     private final JmsSimplifiedApiOps ops;
 
     public Mono<ConnectionFactory> factoryFromCallable(Function<String, ConnectionFactory> constructor, String url)
@@ -33,7 +35,7 @@ public class ReactiveOps
         return Mono.fromCallable(() ->
                 ops.createContext(factory, userName, password).apply(
                         error -> {
-                            log.error("Creating JMS context failed", error);
+                            log.error("Creating context failed", error);
                             throw error;
                         },
                         context -> context
