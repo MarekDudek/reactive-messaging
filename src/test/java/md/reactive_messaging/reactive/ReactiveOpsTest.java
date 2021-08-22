@@ -14,6 +14,7 @@ import reactor.core.publisher.Sinks.Many;
 import reactor.util.retry.Retry;
 
 import javax.jms.ConnectionFactory;
+import javax.jms.JMSConsumer;
 import javax.jms.JMSContext;
 import javax.jms.JMSRuntimeException;
 import java.time.Duration;
@@ -159,21 +160,38 @@ final class ReactiveOpsTest
                 ROPS.factoryFromCallable2(TibjmsConnectionFactory::new, URL);
         final Many<Object> reconnectS = Sinks.many().unicast().onBackpressureBuffer();
         final Object reconnect = new Object();
-        final Mono<JMSContext> contextM = factoryM.flatMap(factory ->
-                ROPS.contextFromCallable3(factory, USER_NAME, PASSWORD).map(context -> {
-                    final Optional<JMSRuntimeException> settingError =
-                            JOPS.setExceptionListener(context, error -> reconnectS.tryEmitNext(reconnect));
-                    settingError.ifPresent(error -> reconnectS.tryEmitNext(reconnect));
-                    return context;
-                })
-        );
-        final Flux<JMSContext> contextsF = contextM.
-                retryWhen(Retry.backoff(MAX_ATTEMPTS, ofMillis(100))).
-                repeatWhen(repeat -> reconnectS.asFlux());
+        final Mono<JMSContext> contextM =
+                factoryM.flatMap(factory ->
+                        ROPS.contextFromCallable3(factory, USER_NAME, PASSWORD).map(context -> {
+                            JOPS.setExceptionListener(context, errorInContext -> {
+                                        log.error("Detected error in context {}, trying to reconnect", context, errorInContext);
+                                        reconnectS.tryEmitNext(reconnect);
+                                    }
+                            ).ifPresent(settingListenerError -> {
+                                        log.error("Setting exception listener on context {} failed", context, settingListenerError);
+                                        reconnectS.tryEmitNext(reconnect);
+                                    }
+                            );
+                            return context;
+                        })
+                );
+        final Flux<JMSContext> contextsF =
+                contextM.
+                        retryWhen(Retry.backoff(MAX_ATTEMPTS, ofMillis(100))).
+                        repeatWhen(repeat -> reconnectS.asFlux());
+        final Flux<JMSConsumer> consumersF =
+                contextsF.flatMap(context ->
+                        JOPS.createQueue(context, QUEUE_NAME).flatMap(queue ->
+                                JOPS.createConsumer(context, queue)
+                        ).apply(
+                                Flux::error,
+                                Flux::just
+                        )
+                );
 
         new Thread(() ->
-                contextsF.subscribe(
-                        context -> log.info("Context: {}", context),
+                consumersF.subscribe(
+                        consumer -> log.info("Consumer: {}", consumer),
                         error -> log.error("Error: ", error),
                         () -> log.info("Completed")
                 )
