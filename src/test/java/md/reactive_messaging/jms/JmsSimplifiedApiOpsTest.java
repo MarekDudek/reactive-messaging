@@ -101,7 +101,7 @@ final class JmsSimplifiedApiOpsTest
         assertThat(producer.isRight()).isTrue();
         producer.consume(
                 FailJmsErrorConsumer,
-                p -> OPS.setAsynch(p, new CompletionListenerImpl(CheckIdMessageConsumer, FailErrorConsumer)).ifPresent(FailJmsErrorConsumer)
+                p -> OPS.setAsync(p, new CompletionListenerImpl(CheckIdMessageConsumer, FailErrorConsumer)).ifPresent(FailJmsErrorConsumer)
         );
         final Either<JMSRuntimeException, Optional<JMSRuntimeException>> status =
                 producer.flatMap(p -> queue.map(q -> OPS.sendTextMessage(p, q, "asynchronous text message")));

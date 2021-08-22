@@ -18,7 +18,7 @@ enum JmsLegacyApiMetaOps
 {
     ;
 
-    public static <R> Either<JMSException, R> supplieer
+    public static <R> Either<JMSException, R> supplier
             (
                     ThrowingSupplier<R, JMSException> supplier,
                     String name,

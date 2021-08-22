@@ -65,7 +65,7 @@ public class JmsLegacyApiOps
 
     public Either<JMSException, Session> createSession(Connection connection)
     {
-        return supplieer(connection::createSession, "create session", log::debug, log::error);
+        return supplier(connection::createSession, "create session", log::debug, log::error);
     }
 
     public Either<JMSException, QueueSession> createQueueSession(QueueConnection connection, boolean transacted, int acknowledgeMode)
@@ -85,7 +85,7 @@ public class JmsLegacyApiOps
 
     public Either<JMSException, TextMessage> createTextMessage(Session session)
     {
-        return supplieer(session::createTextMessage, "create text message", log::trace, log::error);
+        return supplier(session::createTextMessage, "create text message", log::trace, log::error);
     }
 
     public Either<JMSException, TextMessage> consumeTextMessage(TextMessage message, ThrowingConsumer<TextMessage, JMSException> consumer)
@@ -110,6 +110,6 @@ public class JmsLegacyApiOps
 
     public Either<JMSException, Message> receiveMessage(final MessageConsumer consumer)
     {
-        return supplieer(consumer::receive, "receive message", log::trace, log::error);
+        return supplier(consumer::receive, "receive message", log::trace, log::error);
     }
 }

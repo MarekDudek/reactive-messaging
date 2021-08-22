@@ -73,7 +73,7 @@ final class JmsSimplifiedApiTest
                             try
                             {
                                 final String body = message.getBody(String.class);
-                                log.info("Asynronously completed sending '{}'", body);
+                                log.info("Asynchronously completed sending '{}'", body);
                             }
                             catch (JMSException e)
                             {

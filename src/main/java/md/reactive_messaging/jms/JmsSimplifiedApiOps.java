@@ -46,9 +46,9 @@ public class JmsSimplifiedApiOps
         return supplier(context::createProducer, "create-producer", log::debug, log::debug);
     }
 
-    public Optional<JMSRuntimeException> setAsynch(JMSProducer producer, CompletionListener completionListener)
+    public Optional<JMSRuntimeException> setAsync(JMSProducer producer, CompletionListener completionListener)
     {
-        return consumer(producer::setAsync, completionListener, "set-asynch", log::debug, ERROR);
+        return consumer(producer::setAsync, completionListener, "set-async", log::debug, ERROR);
     }
 
     public Optional<JMSRuntimeException> sendTextMessage(JMSProducer producer, Destination destination, String text)
