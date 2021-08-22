@@ -17,7 +17,7 @@ public class ReactiveOps
     @NonNull
     private final JmsSimplifiedApiOps ops;
 
-    public Mono<ConnectionFactory> factoryFromCallable(Function<String, ConnectionFactory> constructor, String url)
+    public Mono<ConnectionFactory> factory(Function<String, ConnectionFactory> constructor, String url)
     {
         return Mono.fromCallable(() ->
                 ops.instantiateConnectionFactory(constructor, url).apply(
@@ -30,7 +30,7 @@ public class ReactiveOps
         );
     }
 
-    public Mono<JMSContext> contextFromCallable(ConnectionFactory factory, String userName, String password)
+    public Mono<JMSContext> context(ConnectionFactory factory, String userName, String password)
     {
         return Mono.fromCallable(() ->
                 ops.createContext(factory, userName, password).apply(

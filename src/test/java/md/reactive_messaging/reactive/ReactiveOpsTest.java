@@ -38,12 +38,12 @@ final class ReactiveOpsTest
     void receiving_bodies_synchronously() throws InterruptedException
     {
         final Mono<ConnectionFactory> factoryM =
-                ROPS.factoryFromCallable(TibjmsConnectionFactory::new, URL);
+                ROPS.factory(TibjmsConnectionFactory::new, URL);
         final Many<Object> reconnectS = Sinks.many().unicast().onBackpressureBuffer();
         final Object reconnect = new Object();
         final Mono<JMSContext> contextM =
                 factoryM.flatMap(factory ->
-                        ROPS.contextFromCallable(factory, USER_NAME, PASSWORD).map(context -> {
+                        ROPS.context(factory, USER_NAME, PASSWORD).map(context -> {
                                     JOPS.setExceptionListener(context, errorInContext -> {
                                                 log.error("Detected error in context {}, trying to reconnect", context, errorInContext);
                                                 reconnectS.tryEmitNext(reconnect);
@@ -98,12 +98,12 @@ final class ReactiveOpsTest
     void receiving_messages_asynchronously() throws InterruptedException
     {
         final Mono<ConnectionFactory> factoryM =
-                ROPS.factoryFromCallable(TibjmsConnectionFactory::new, URL);
+                ROPS.factory(TibjmsConnectionFactory::new, URL);
         final Many<Object> reconnectS = Sinks.many().unicast().onBackpressureBuffer();
         final Object reconnect = new Object();
         final Mono<JMSContext> contextM =
                 factoryM.flatMap(factory ->
-                        ROPS.contextFromCallable(factory, USER_NAME, PASSWORD).map(context -> {
+                        ROPS.context(factory, USER_NAME, PASSWORD).map(context -> {
                                     JOPS.setExceptionListener(context, errorInContext -> {
                                                 log.error("Detected error in context {}, trying to reconnect", context, errorInContext);
                                                 reconnectS.tryEmitNext(reconnect);
