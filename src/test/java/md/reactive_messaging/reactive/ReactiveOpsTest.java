@@ -3,17 +3,15 @@ package md.reactive_messaging.reactive;
 import com.tibco.tibjms.TibjmsConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.jms.JmsSimplifiedApiOps;
+import md.reactive_messaging.reactive.ReactiveOps.Reconnect;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Sinks.Many;
 
-import javax.jms.ConnectionFactory;
 import javax.jms.JMSConsumer;
-import javax.jms.JMSContext;
 import javax.jms.Message;
 import java.time.Duration;
 
@@ -27,8 +25,7 @@ import static reactor.util.retry.Retry.backoff;
 @TestMethodOrder(OrderAnnotation.class)
 final class ReactiveOpsTest
 {
-    private static final JmsSimplifiedApiOps JOPS = new JmsSimplifiedApiOps();
-    private static final ReactiveOps ROPS = new ReactiveOps(JOPS);
+    private static final ReactiveOps OPS = new ReactiveOps(new JmsSimplifiedApiOps());
 
     private static final long MAX_ATTEMPTS = MAX_VALUE;
     private static final Duration MIN_BACKOFF = ofSeconds(1);
@@ -37,54 +34,26 @@ final class ReactiveOpsTest
     @Test
     void receiving_bodies_synchronously() throws InterruptedException
     {
-        final Mono<ConnectionFactory> factoryM =
-                ROPS.factory(TibjmsConnectionFactory::new, URL);
-        final Many<Object> reconnectS = Sinks.many().unicast().onBackpressureBuffer();
-        final Object reconnect = new Object();
-        final Mono<JMSContext> contextM =
-                factoryM.flatMap(factory ->
-                        ROPS.context(factory, USER_NAME, PASSWORD).map(context -> {
-                                    JOPS.setExceptionListener(context, errorInContext -> {
-                                                log.error("Detected error in context {}, trying to reconnect", context, errorInContext);
-                                                reconnectS.tryEmitNext(reconnect);
-                                            }
-                                    ).ifPresent(settingListenerError -> {
-                                                log.error("Setting exception listener on context {} failed", context, settingListenerError);
-                                                reconnectS.tryEmitNext(reconnect);
-                                            }
-                                    );
-                                    return context;
-                                }
-                        )
-                );
-        final Flux<JMSContext> contextsF =
-                contextM.
-                        retryWhen(backoff(MAX_ATTEMPTS, MIN_BACKOFF)).
-                        repeatWhen(repeat -> reconnectS.asFlux());
-        final Flux<JMSConsumer> consumersF =
-                contextsF.flatMap(context ->
-                        JOPS.createQueue(context, QUEUE_NAME).flatMap(queue ->
-                                JOPS.createConsumer(context, queue)
-                        ).apply(
-                                error -> {
-                                    reconnectS.tryEmitNext(reconnect);
-                                    return Flux.error(error);
-                                },
-                                Flux::just
-                        )
-                );
-        final Flux<String> bodiesF =
-                consumersF.flatMap(consumer ->
-                        Flux.generate(sink ->
-                                JOPS.receiveBody(consumer, String.class).consume(
-                                        sink::error,
-                                        sink::next
+        final Many<Reconnect> reconnect = Sinks.many().unicast().onBackpressureBuffer();
+
+        final Flux<JMSConsumer> consumers =
+                OPS.factory(TibjmsConnectionFactory::new, URL).flatMap(factory ->
+                                OPS.context(factory, USER_NAME, PASSWORD).map(context ->
+                                        OPS.setExceptionListener(context, reconnect)
                                 )
-                        )
+                        ).
+                        retryWhen(backoff(MAX_ATTEMPTS, MIN_BACKOFF)).
+                        repeatWhen(repeat -> reconnect.asFlux()).flatMap(context ->
+                                OPS.createQueueConsumer(context, QUEUE_NAME, reconnect)
+                        );
+
+        final Flux<String> messageBodies =
+                consumers.flatMap(consumer ->
+                        OPS.receiveMessageBodies(consumer, String.class, reconnect)
                 );
 
         new Thread(() ->
-                bodiesF.subscribe(
+                messageBodies.subscribe(
                         body -> log.info("Body: {}", body),
                         error -> log.error("Error: ", error),
                         () -> log.info("Completed")
@@ -97,59 +66,29 @@ final class ReactiveOpsTest
     @Test
     void receiving_messages_asynchronously() throws InterruptedException
     {
-        final Mono<ConnectionFactory> factoryM =
-                ROPS.factory(TibjmsConnectionFactory::new, URL);
-        final Many<Object> reconnectS = Sinks.many().unicast().onBackpressureBuffer();
-        final Object reconnect = new Object();
-        final Mono<JMSContext> contextM =
-                factoryM.flatMap(factory ->
-                        ROPS.context(factory, USER_NAME, PASSWORD).map(context -> {
-                                    JOPS.setExceptionListener(context, errorInContext -> {
-                                                log.error("Detected error in context {}, trying to reconnect", context, errorInContext);
-                                                reconnectS.tryEmitNext(reconnect);
-                                            }
-                                    ).ifPresent(settingListenerError -> {
-                                                log.error("Setting exception listener on context {} failed", context, settingListenerError);
-                                                reconnectS.tryEmitNext(reconnect);
-                                            }
-                                    );
-                                    return context;
-                                }
-                        )
-                );
-        final Flux<JMSContext> contextsF =
-                contextM.
-                        retryWhen(backoff(MAX_ATTEMPTS, MIN_BACKOFF)).
-                        repeatWhen(repeat -> reconnectS.asFlux());
-        final Flux<JMSConsumer> consumersF =
-                contextsF.flatMap(context ->
-                        JOPS.createQueue(context, QUEUE_NAME).flatMap(queue ->
-                                JOPS.createConsumer(context, queue)
-                        ).apply(
-                                error -> {
-                                    reconnectS.tryEmitNext(reconnect);
-                                    return Flux.error(error);
-                                },
-                                Flux::just
-                        )
-                );
-        final Many<Message> messagesS = Sinks.many().unicast().onBackpressureBuffer();
-        consumersF.doOnNext(consumer ->
-                JOPS.setMessageListener(consumer, message -> {
-                                    log.trace("Received {}", message);
-                                    messagesS.tryEmitNext(message);
-                                }
+        final Many<Reconnect> reconnect = Sinks.many().unicast().onBackpressureBuffer();
+
+        final Flux<JMSConsumer> consumers =
+                OPS.factory(TibjmsConnectionFactory::new, URL).flatMap(factory ->
+                                OPS.context(factory, USER_NAME, PASSWORD).map(context ->
+                                        OPS.setExceptionListener(context, reconnect)
+                                )
                         ).
-                        ifPresent(settingListenerError -> {
-                                    log.error("Setting message listener on consumer {} failed", consumer, settingListenerError);
-                                    reconnectS.tryEmitNext(reconnect);
-                                }
-                        )
+                        retryWhen(backoff(MAX_ATTEMPTS, MIN_BACKOFF)).
+                        repeatWhen(repeat -> reconnect.asFlux()).flatMap(context ->
+                                OPS.createQueueConsumer(context, QUEUE_NAME, reconnect)
+                        );
+
+        final Many<Message> messages = Sinks.many().unicast().onBackpressureBuffer();
+
+        consumers.doOnNext(consumer ->
+                OPS.setMessageListener(consumer, reconnect, messages)
         ).subscribe();
-        final Flux<Message> messagesF = messagesS.asFlux();
+
+        final Flux<Message> flux = messages.asFlux();
 
         new Thread(() ->
-                messagesF.subscribe(
+                flux.subscribe(
                         message -> log.info("Message: {}", message),
                         error -> log.error("Error: ", error),
                         () -> log.info("Completed")
