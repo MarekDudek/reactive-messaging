@@ -69,7 +69,7 @@ public class ReactiveOps
         return context;
     }
 
-    public Flux<JMSConsumer> createQueueConsumer(JMSContext context, String queueName, Many<Reconnect> reconnect)
+    public Mono<JMSConsumer> createQueueConsumer(JMSContext context, String queueName, Many<Reconnect> reconnect)
     {
         return ops.createQueue(context, queueName).flatMap(queue ->
                 ops.createConsumer(context, queue)
@@ -77,9 +77,9 @@ public class ReactiveOps
                 error -> {
                     log.error("Creating consumer or queue {} in context {} failed", queueName, context, error);
                     reconnect.tryEmitNext(RECONNECT);
-                    return Flux.error(error);
+                    return Mono.error(error);
                 },
-                Flux::just
+                Mono::just
         );
     }
 

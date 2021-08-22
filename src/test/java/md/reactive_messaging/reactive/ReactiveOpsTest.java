@@ -8,6 +8,7 @@ import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import reactor.core.publisher.Flux;
+import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Sinks.Many;
 
@@ -29,31 +30,34 @@ final class ReactiveOpsTest
 
     private static final long MAX_ATTEMPTS = MAX_VALUE;
     private static final Duration MIN_BACKOFF = ofSeconds(1);
-    private static final Duration TEST_DURATION = ofSeconds(3);
+    private static final Duration TEST_DURATION = ofSeconds(360);
 
     @Test
     void receiving_bodies_synchronously() throws InterruptedException
     {
         final Many<Reconnect> reconnect = Sinks.many().unicast().onBackpressureBuffer();
 
-        final Flux<JMSConsumer> consumers =
+        final Mono<JMSConsumer> monitoredConsumer =
                 OPS.factory(TibjmsConnectionFactory::new, URL).flatMap(factory ->
                                 OPS.context(factory, USER_NAME, PASSWORD).map(context ->
                                         OPS.setExceptionListener(context, reconnect)
                                 )
-                        ).
-                        retryWhen(backoff(MAX_ATTEMPTS, MIN_BACKOFF)).
-                        repeatWhen(repeat -> reconnect.asFlux()).flatMap(context ->
+                        ).flatMap(context ->
                                 OPS.createQueueConsumer(context, QUEUE_NAME, reconnect)
                         );
 
-        final Flux<String> messageBodies =
-                consumers.flatMap(consumer ->
+        final Flux<String> single =
+                monitoredConsumer.flatMapMany(consumer ->
                         OPS.receiveMessageBodies(consumer, String.class, reconnect)
                 );
 
+        final Flux<String> multiple =
+                single.
+                        retryWhen(backoff(MAX_ATTEMPTS, MIN_BACKOFF)).
+                        repeatWhen(repeat -> reconnect.asFlux());
+
         new Thread(() ->
-                messageBodies.subscribe(
+                multiple.subscribe(
                         body -> log.info("Body: {}", body),
                         error -> log.error("Error: ", error),
                         () -> log.info("Completed")
@@ -68,20 +72,22 @@ final class ReactiveOpsTest
     {
         final Many<Reconnect> reconnect = Sinks.many().unicast().onBackpressureBuffer();
 
-        final Flux<JMSConsumer> consumers =
+        final Mono<JMSConsumer> monitoredConsumer =
                 OPS.factory(TibjmsConnectionFactory::new, URL).flatMap(factory ->
-                                OPS.context(factory, USER_NAME, PASSWORD).map(context ->
-                                        OPS.setExceptionListener(context, reconnect)
-                                )
-                        ).
+                        OPS.context(factory, USER_NAME, PASSWORD).map(context ->
+                                OPS.setExceptionListener(context, reconnect)
+                        )
+                ).flatMap(context ->
+                        OPS.createQueueConsumer(context, QUEUE_NAME, reconnect)
+                );
+        final Flux<JMSConsumer> reconnections =
+                monitoredConsumer.
                         retryWhen(backoff(MAX_ATTEMPTS, MIN_BACKOFF)).
-                        repeatWhen(repeat -> reconnect.asFlux()).flatMap(context ->
-                                OPS.createQueueConsumer(context, QUEUE_NAME, reconnect)
-                        );
+                        repeatWhen(repeat -> reconnect.asFlux());
 
         final Many<Message> messages = Sinks.many().unicast().onBackpressureBuffer();
 
-        consumers.doOnNext(consumer ->
+        reconnections.doOnNext(consumer ->
                 OPS.setMessageListener(consumer, reconnect, messages)
         ).subscribe();
 
