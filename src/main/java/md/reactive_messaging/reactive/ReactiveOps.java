@@ -16,11 +16,6 @@ public class ReactiveOps
 {
     private final Jms2Ops ops;
 
-    enum Reconnect
-    {
-        RECONNECT
-    }
-
     @Deprecated // does not use ops
     public Mono<ConnectionFactory> factoryFromCallable(Function<String, ConnectionFactory> constructor, String url)
     {
