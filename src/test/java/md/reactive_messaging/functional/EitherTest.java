@@ -3,6 +3,7 @@ package md.reactive_messaging.functional;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 
+import static java.util.Optional.of;
 import static md.reactive_messaging.functional.Either.left;
 import static md.reactive_messaging.functional.Either.right;
 import static org.assertj.core.api.Assertions.assertThat;
@@ -72,5 +73,19 @@ final class EitherTest
         assertThat(l).isEqualTo(left(5));
         final Either<Integer, String> r = RIGHT.biMap(e -> e.toUpperCase().length(), n -> Integer.toString(n * n));
         assertThat(r).isEqualTo(right("529"));
+    }
+
+    @Test
+    void flip()
+    {
+        assertThat(RIGHT.flip()).isEqualTo(left(23));
+        assertThat(LEFT.flip()).isEqualTo(right("error"));
+    }
+
+    @Test
+    void to_optional()
+    {
+        assertThat(RIGHT.toOptional()).isNotPresent();
+        assertThat(LEFT.toOptional()).isEqualTo(of("error"));
     }
 }

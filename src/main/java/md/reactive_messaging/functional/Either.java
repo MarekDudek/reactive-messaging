@@ -3,8 +3,11 @@ package md.reactive_messaging.functional;
 import lombok.NonNull;
 import lombok.Value;
 
+import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
+
+import static java.util.Optional.empty;
 
 public interface Either<L, R>
 {
@@ -76,6 +79,21 @@ public interface Either<L, R>
     default <T, U> Either<T, U> biMap(final Function<L, T> leftFunction, final Function<R, U> rightFunction)
     {
         return apply(left -> left(leftFunction.apply(left)), right -> right(rightFunction.apply(right)));
+    }
+
+    default Either<R, L> flip()
+    {
+        return apply(Either::right, Either::left);
+    }
+
+    static <L, R> Either<L, R> fromOptional(final Optional<L> optional, final R right)
+    {
+        return optional.map(Either::<L, R>left).orElse(right(right));
+    }
+
+    default Optional<L> toOptional()
+    {
+        return apply(Optional::of, right -> empty());
     }
 }
 

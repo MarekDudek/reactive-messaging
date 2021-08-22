@@ -44,17 +44,18 @@ final class ReactiveOpsTest
         final Mono<JMSContext> contextM =
                 factoryM.flatMap(factory ->
                         ROPS.contextFromCallable(factory, USER_NAME, PASSWORD).map(context -> {
-                            JOPS.setExceptionListener(context, errorInContext -> {
-                                        log.error("Detected error in context {}, trying to reconnect", context, errorInContext);
-                                        reconnectS.tryEmitNext(reconnect);
-                                    }
-                            ).ifPresent(settingListenerError -> {
-                                        log.error("Setting exception listener on context {} failed", context, settingListenerError);
-                                        reconnectS.tryEmitNext(reconnect);
-                                    }
-                            );
-                            return context;
-                        })
+                                    JOPS.setExceptionListener(context, errorInContext -> {
+                                                log.error("Detected error in context {}, trying to reconnect", context, errorInContext);
+                                                reconnectS.tryEmitNext(reconnect);
+                                            }
+                                    ).ifPresent(settingListenerError -> {
+                                                log.error("Setting exception listener on context {} failed", context, settingListenerError);
+                                                reconnectS.tryEmitNext(reconnect);
+                                            }
+                                    );
+                                    return context;
+                                }
+                        )
                 );
         final Flux<JMSContext> contextsF =
                 contextM.
@@ -94,7 +95,7 @@ final class ReactiveOpsTest
     }
 
     @Test
-    void receiving_bodies_asynchronously() throws InterruptedException
+    void receiving_messages_asynchronously() throws InterruptedException
     {
         final Mono<ConnectionFactory> factoryM =
                 ROPS.factoryFromCallable(TibjmsConnectionFactory::new, URL);

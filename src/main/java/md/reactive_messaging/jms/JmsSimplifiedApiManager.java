@@ -3,26 +3,27 @@ package md.reactive_messaging.jms;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import md.reactive_messaging.functional.Either;
 
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSRuntimeException;
-import java.util.function.Consumer;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
+
+import static java.util.Optional.empty;
+import static md.reactive_messaging.functional.Either.fromOptional;
 
 @Slf4j
 @RequiredArgsConstructor
 public final class JmsSimplifiedApiManager
 {
-    private static final Consumer<JMSRuntimeException> IGNORE_ERROR = e -> {
-    };
-    private static final Consumer<JMSRuntimeException> LOG_ERROR = e -> log.error("", e);
-    private static final Consumer<JMSRuntimeException> DEFAULT = LOG_ERROR;
+    private static final Object NO_ERROR = new Object();
 
     @NonNull
     private final JmsSimplifiedApiOps ops;
 
-    public void sendTextMessage
+    public Optional<JMSRuntimeException> sendTextMessage
             (
                     Function<String, ConnectionFactory> constructor,
                     String url,
@@ -32,20 +33,26 @@ public final class JmsSimplifiedApiManager
                     String text
             )
     {
-        ops.instantiateConnectionFactory(constructor, url).consume(DEFAULT, factory ->
-                ops.createContext(factory, userName, password).consume(DEFAULT, context -> {
-                            ops.createQueue(context, queueName).consume(DEFAULT, queue ->
-                                    ops.createProducer(context).consume(DEFAULT, producer ->
-                                            ops.sendTextMessage(producer, queue, text).ifPresent(DEFAULT)
-                                    )
-                            );
-                            ops.closeContext(context).ifPresent(DEFAULT);
-                        }
-                )
-        );
+        return
+                ops.instantiateConnectionFactory(constructor, url).flatMap(factory ->
+                        ops.createContext(factory, userName, password).flatMap(context -> {
+                                    final Either<JMSRuntimeException, Object> sent =
+                                            ops.createQueue(context, queueName).flatMap(queue ->
+                                                    ops.createProducer(context).flatMap(producer -> {
+                                                                final Optional<JMSRuntimeException> error =
+                                                                        ops.sendTextMessage(producer, queue, text);
+                                                                return fromOptional(error, NO_ERROR);
+                                                            }
+                                                    )
+                                            );
+                                    final Optional<JMSRuntimeException> closed = ops.closeContext(context);
+                                    return sent.isLeft() ? sent : fromOptional(closed, NO_ERROR);
+                                }
+                        )
+                ).toOptional();
     }
 
-    public void sendTextMessages
+    public Optional<JMSRuntimeException> sendTextMessages
             (
                     Function<String, ConnectionFactory> constructor,
                     String url,
@@ -55,18 +62,25 @@ public final class JmsSimplifiedApiManager
                     Stream<String> texts
             )
     {
-        ops.instantiateConnectionFactory(constructor, url).consume(DEFAULT, factory ->
-                ops.createContext(factory, userName, password).consume(DEFAULT, context -> {
-                            ops.createQueue(context, queueName).consume(DEFAULT, queue ->
-                                    ops.createProducer(context).consume(DEFAULT, producer ->
-                                            texts.forEach(text ->
-                                                    ops.sendTextMessage(producer, queue, text).ifPresent(DEFAULT)
-                                            )
-                                    )
-                            );
-                            ops.closeContext(context).ifPresent(DEFAULT);
-                        }
-                )
-        );
+        return
+                ops.instantiateConnectionFactory(constructor, url).flatMap(factory ->
+                        ops.createContext(factory, userName, password).flatMap(context -> {
+                                    final Either<JMSRuntimeException, Object> sent =
+                                            ops.createQueue(context, queueName).flatMap(queue ->
+                                                    ops.createProducer(context).flatMap(producer -> {
+                                                                final Optional<JMSRuntimeException> error =
+                                                                        texts.map(text ->
+                                                                                        ops.sendTextMessage(producer, queue, text)
+                                                                                ).
+                                                                                filter(Optional::isPresent).findFirst().orElse(empty());
+                                                                return fromOptional(error, NO_ERROR);
+                                                            }
+                                                    )
+                                            );
+                                    final Optional<JMSRuntimeException> closed = ops.closeContext(context);
+                                    return sent.isLeft() ? sent : fromOptional(closed, NO_ERROR);
+                                }
+                        )
+                ).toOptional();
     }
 }
