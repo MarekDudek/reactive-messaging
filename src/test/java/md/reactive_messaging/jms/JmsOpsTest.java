@@ -11,7 +11,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import javax.jms.JMSException;
 
 import static javax.jms.Session.AUTO_ACKNOWLEDGE;
-import static md.reactive_messaging.jms.TestTibcoEmsConfig.*;
+import static md.reactive_messaging.TestTibcoEmsConfig.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j

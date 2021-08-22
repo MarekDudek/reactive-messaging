@@ -9,7 +9,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 
 import javax.jms.*;
 
-import static md.reactive_messaging.jms.TestTibcoEmsConfig.*;
+import static md.reactive_messaging.TestTibcoEmsConfig.*;
 
 @Slf4j
 @TestMethodOrder(OrderAnnotation.class)

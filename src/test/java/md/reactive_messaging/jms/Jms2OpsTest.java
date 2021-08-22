@@ -11,7 +11,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import javax.jms.*;
 import java.util.Optional;
 
-import static md.reactive_messaging.jms.TestTibcoEmsConfig.*;
+import static md.reactive_messaging.TestTibcoEmsConfig.*;
 import static md.reactive_messaging.jms.utils.CheckIdMessageConsumer.CheckIdMessageConsumer;
 import static md.reactive_messaging.jms.utils.FailErrorConsumer.FailErrorConsumer;
 import static md.reactive_messaging.jms.utils.FailExceptionListener.FailExceptionListener;
