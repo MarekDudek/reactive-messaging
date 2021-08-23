@@ -18,7 +18,7 @@ import static md.reactive_messaging.TestTibcoEmsConfig.*;
 
 @Slf4j
 @TestMethodOrder(OrderAnnotation.class)
-final class ReactiveOpsTest
+final class ReactivePublishersTest
 {
     private static final ReactiveOps OPS = new ReactiveOps(new JmsSimplifiedApiOps());
     private static final ReactivePublishers publishers = new ReactivePublishers(OPS);
