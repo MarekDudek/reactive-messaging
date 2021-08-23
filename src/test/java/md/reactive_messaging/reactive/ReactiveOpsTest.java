@@ -30,7 +30,7 @@ final class ReactiveOpsTest
 
     private static final long MAX_ATTEMPTS = MAX_VALUE;
     private static final Duration MIN_BACKOFF = ofSeconds(1);
-    private static final Duration TEST_DURATION = ofSeconds(360);
+    private static final Duration TEST_DURATION = ofSeconds(3);
 
     @Test
     void receiving_bodies_synchronously() throws InterruptedException

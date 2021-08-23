@@ -25,12 +25,12 @@ public final class JmsSimplifiedApiManager
 
     public Optional<JMSRuntimeException> sendTextMessage
             (
-                    Function<String, ConnectionFactory> constructor,
-                    String url,
-                    String userName,
-                    String password,
-                    String queueName,
-                    String text
+                    @NonNull Function<String, ConnectionFactory> constructor,
+                    @NonNull String url,
+                    @NonNull String userName,
+                    @NonNull String password,
+                    @NonNull String queueName,
+                    @NonNull String text
             )
     {
         return
@@ -54,12 +54,12 @@ public final class JmsSimplifiedApiManager
 
     public Optional<JMSRuntimeException> sendTextMessages
             (
-                    Function<String, ConnectionFactory> constructor,
-                    String url,
-                    String userName,
-                    String password,
-                    String queueName,
-                    Stream<String> texts
+                    @NonNull Function<String, ConnectionFactory> constructor,
+                    @NonNull String url,
+                    @NonNull String userName,
+                    @NonNull String password,
+                    @NonNull String queueName,
+                    @NonNull Stream<String> texts
             )
     {
         return
