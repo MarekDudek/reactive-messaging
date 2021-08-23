@@ -70,8 +70,6 @@ public class ReactivePublishers
             )
     {
         final Many<Reconnect> reconnect = Sinks.many().unicast().onBackpressureBuffer();
-        //final Sinks.Many<Reconnect> reconnect = Sinks.many().multicast().onBackpressureBuffer();
-        //final Sinks.Many<Reconnect> reconnect = Sinks.many().replay().latest();
 
         final Mono<JMSConsumer> monitoredConsumer =
                 ops.factory(connectionFactory, url).flatMap(factory ->
