@@ -32,8 +32,9 @@ final class ReactivePublishersTest
     {
         final Flux<String> messageBodies =
                 publishers.syncMessages(
-                        TibjmsConnectionFactory::new, URL, URL,
+                        TibjmsConnectionFactory::new, URL,
                         USER_NAME, PASSWORD,
+                        QUEUE_NAME,
                         String.class,
                         MAX_ATTEMPTS, MIN_BACKOFF
                 );
@@ -53,8 +54,9 @@ final class ReactivePublishersTest
     void receiving_messages_asynchronously() throws InterruptedException
     {
         final Flux<Message> messageFlux = publishers.asyncMessages(
-                TibjmsConnectionFactory::new, URL, URL,
+                TibjmsConnectionFactory::new, URL,
                 USER_NAME, PASSWORD,
+                QUEUE_NAME,
                 MAX_ATTEMPTS, MIN_BACKOFF
         );
 

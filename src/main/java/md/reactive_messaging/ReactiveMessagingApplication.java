@@ -2,6 +2,7 @@ package md.reactive_messaging;
 
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
+import md.reactive_messaging.jms.JmsSimplifiedApiOps;
 import md.reactive_messaging.reactive.ReactivePublishers;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
@@ -74,6 +75,7 @@ public class ReactiveMessagingApplication
             (
                     TaskExecutor taskExecutor,
                     ReactivePublishers publishers,
+                    JmsSimplifiedApiOps jmsOps,
                     Function<String, ConnectionFactory> connectionFactory,
                     @Qualifier("url") String url,
                     @Qualifier("user-name") String userName,
@@ -99,7 +101,12 @@ public class ReactiveMessagingApplication
                                         );
                                 messages.subscribe(
                                         message ->
-                                                log.info("Message {}", message),
+                                                jmsOps.applyToMessage(message, m -> m.getBody(String.class)).consume(
+                                                        error ->
+                                                                log.error("Error getting body", error),
+                                                        body ->
+                                                                log.info("Body {}", body)
+                                                ),
                                         error ->
                                                 log.error("Error", error),
                                         () ->

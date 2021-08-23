@@ -20,7 +20,7 @@ import static reactor.util.retry.Retry.backoff;
 public class ReactivePublishers
 {
     @NonNull
-    private final ReactiveOps ops;
+    public final ReactiveOps ops;
 
     public <T> Flux<T> syncMessages
             (
@@ -77,24 +77,18 @@ public class ReactivePublishers
                 ).flatMap(monitoredContext ->
                         ops.createQueueConsumer(monitoredContext, queueName, reconnect)
                 );
+
         final Flux<JMSConsumer> reconnections =
                 monitoredConsumer.
                         retryWhen(backoff(maxAttempts, minBackoff)).
                         repeatWhen(repeat -> reconnect.asFlux());
 
-        final Sinks.Many<Message> messages = Sinks.many().unicast().onBackpressureBuffer();
-
-        reconnections.doOnNext(consumer ->
-                ops.setMessageListener(consumer, reconnect, messages)
-        ).subscribe(
-                context ->
-                        log.info("Context {}", context),
-                error ->
-                        log.error("Error ", error),
-                () ->
-                        log.error("Complete")
-        );
-
-        return messages.asFlux();
+        return
+                reconnections.flatMap(consumer -> {
+                            Sinks.Many<Message> messages = Sinks.many().unicast().onBackpressureBuffer();
+                            ops.ops.setMessageListener(consumer, messages::tryEmitNext);
+                            return messages.asFlux();
+                        }
+                );
     }
 }

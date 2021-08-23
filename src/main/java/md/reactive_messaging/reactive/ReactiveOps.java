@@ -21,7 +21,7 @@ import static md.reactive_messaging.reactive.ReactiveOps.Reconnect.RECONNECT;
 public class ReactiveOps
 {
     @NonNull
-    private final JmsSimplifiedApiOps ops;
+    public final JmsSimplifiedApiOps ops;
 
     public enum Reconnect
     {
