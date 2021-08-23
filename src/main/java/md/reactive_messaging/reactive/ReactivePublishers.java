@@ -3,9 +3,11 @@ package md.reactive_messaging.reactive;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import md.reactive_messaging.reactive.ReactiveOps.Reconnect;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
+import reactor.core.publisher.Sinks.Many;
 
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSConsumer;
@@ -35,7 +37,7 @@ public class ReactivePublishers
             )
     {
 
-        final Sinks.Many<ReactiveOps.Reconnect> reconnect = Sinks.many().unicast().onBackpressureBuffer();
+        final Many<Reconnect> reconnect = Sinks.many().unicast().onBackpressureBuffer();
 
         final Mono<JMSConsumer> monitoredConsumer =
                 ops.factory(connectionFactory, url).flatMap(factory ->
@@ -67,7 +69,9 @@ public class ReactivePublishers
                     Duration minBackoff
             )
     {
-        final Sinks.Many<ReactiveOps.Reconnect> reconnect = Sinks.many().unicast().onBackpressureBuffer();
+        final Many<Reconnect> reconnect = Sinks.many().unicast().onBackpressureBuffer();
+        //final Sinks.Many<Reconnect> reconnect = Sinks.many().multicast().onBackpressureBuffer();
+        //final Sinks.Many<Reconnect> reconnect = Sinks.many().replay().latest();
 
         final Mono<JMSConsumer> monitoredConsumer =
                 ops.factory(connectionFactory, url).flatMap(factory ->
@@ -85,7 +89,7 @@ public class ReactivePublishers
 
         return
                 reconnections.flatMap(consumer -> {
-                            Sinks.Many<Message> messages = Sinks.many().unicast().onBackpressureBuffer();
+                            Many<Message> messages = Sinks.many().unicast().onBackpressureBuffer();
                             ops.ops.setMessageListener(consumer, messages::tryEmitNext);
                             return messages.asFlux();
                         }

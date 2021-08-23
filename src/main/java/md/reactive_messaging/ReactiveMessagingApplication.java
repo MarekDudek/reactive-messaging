@@ -1,6 +1,9 @@
 package md.reactive_messaging;
 
 import lombok.extern.slf4j.Slf4j;
+import md.reactive_messaging.apps.JmsAsyncListener;
+import md.reactive_messaging.apps.JmsSyncReceiver;
+import md.reactive_messaging.apps.JmsSyncSender;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 import md.reactive_messaging.jms.JmsSimplifiedApiOps;
 import md.reactive_messaging.reactive.ReactivePublishers;
@@ -11,15 +14,12 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.task.TaskExecutor;
-import reactor.core.publisher.Flux;
 
 import javax.jms.ConnectionFactory;
-import javax.jms.Message;
 import java.time.Duration;
 import java.util.function.Function;
 
-import static java.lang.Thread.sleep;
-import static java.time.Duration.ofMillis;
+import static java.time.Duration.ofSeconds;
 import static md.reactive_messaging.Profiles.*;
 
 @SpringBootApplication
@@ -45,27 +45,14 @@ public class ReactiveMessagingApplication
             )
     {
         return args ->
-                taskExecutor.execute(() ->
-                        {
-                            while (true)
-                            {
-                                try
-                                {
-                                    log.info("Sending");
-                                    manager.sendTextMessage(
-                                            connectionFactory, url,
-                                            userName, password,
-                                            queueName, "text"
-                                    );
-                                    sleep(ofMillis(100).toMillis());
-                                }
-                                catch (InterruptedException e)
-                                {
-                                    log.info("Requested to stop");
-                                    break;
-                                }
-                            }
-                        }
+                taskExecutor.execute(
+                        JmsSyncSender.builder().
+                                manager(manager).
+                                connectionFactory(connectionFactory).url(url).
+                                userName(userName).password(password).
+                                queueName(queueName).text("Message in the bottle").
+                                sleep(ofSeconds(1)).
+                                build()
                 );
     }
 
@@ -86,39 +73,27 @@ public class ReactiveMessagingApplication
             )
     {
         return args ->
-                taskExecutor.execute(() ->
-                        {
-                            log.info("jmsAsyncListener Start");
+                taskExecutor.execute(() -> {
                             try
                             {
-                                log.info("jmsAsyncListener Trying");
-                                final Flux<Message> messages =
-                                        publishers.asyncMessages(
-                                                connectionFactory, url,
-                                                userName, password,
-                                                queueName,
-                                                maxAttempts, minBackoff
-                                        );
-                                messages.subscribe(
-                                        message ->
-                                                jmsOps.applyToMessage(message, m -> m.getBody(String.class)).consume(
-                                                        error ->
-                                                                log.error("Error getting body", error),
-                                                        body ->
-                                                                log.info("Body {}", body)
-                                                ),
-                                        error ->
-                                                log.error("Error", error),
-                                        () ->
-                                                log.error("Completed")
-                                );
-                                log.info("jmsAsyncListener Tried");
+                                log.info("Try task {}", JmsAsyncListener.class.getName());
+                                final JmsAsyncListener listener =
+                                        JmsAsyncListener.builder().
+                                                publishers(publishers).jmsOps(jmsOps).
+                                                connectionFactory(connectionFactory).url(url).
+                                                userName(userName).password(password).
+                                                queueName(queueName).
+                                                maxAttempts(maxAttempts).minBackoff(minBackoff).
+                                                build();
+                                listener.run();
+                                log.info("Success in task {}", JmsAsyncListener.class.getName());
                             }
                             catch (Exception e)
                             {
-                                log.error("jmsAsyncListener Error", e);
+                                log.error("Exception in {} task", JmsAsyncListener.class.getName(), e);
+                                throw e;
                             }
-                            log.info("jmsAsyncListener End");
+                            log.info("Critical error in {}", JmsAsyncListener.class.getName());
                         }
                 );
     }
@@ -139,33 +114,27 @@ public class ReactiveMessagingApplication
             )
     {
         return args ->
-                taskExecutor.execute(() ->
-                        {
-                            log.info("jmsSyncReceiver Start");
+                taskExecutor.execute(() -> {
                             try
                             {
-                                log.info("jmsSyncReceiver Trying");
-                                final Flux<String> messageBodies = publishers.syncMessages(connectionFactory, url,
-                                        userName, password,
-                                        queueName,
-                                        String.class,
-                                        maxAttempts, minBackoff
-                                );
-                                messageBodies.subscribe(
-                                        body ->
-                                                log.info("Body {}", body),
-                                        error ->
-                                                log.error("Error", error),
-                                        () ->
-                                                log.error("Completed")
-                                );
-                                log.info("jmsSyncReceiver Tried");
+                                log.info("Try task {}", JmsSyncReceiver.class.getName());
+                                final JmsSyncReceiver receiver =
+                                        JmsSyncReceiver.builder().
+                                                publishers(publishers).
+                                                connectionFactory(connectionFactory).url(url).
+                                                userName(userName).password(password).
+                                                queueName(queueName).
+                                                maxAttempts(maxAttempts).minBackoff(minBackoff).
+                                                build();
+                                receiver.run();
+                                log.info("Success in task {}", JmsSyncReceiver.class.getName());
                             }
                             catch (Exception e)
                             {
-                                log.error("jmsSyncReceiver Error", e);
+                                log.error("Exception in {} task", JmsSyncReceiver.class.getName(), e);
+                                throw e;
                             }
-                            log.info("jmsSyncReceiver End");
+                            log.info("Critical error in {}", JmsSyncReceiver.class.getName());
                         }
                 );
     }
