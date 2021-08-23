@@ -1,4 +1,4 @@
-package md.reactive_messaging;
+package md.reactive_messaging.configs;
 
 import com.tibco.tibjms.TibjmsConnectionFactory;
 import org.springframework.beans.factory.annotation.Qualifier;

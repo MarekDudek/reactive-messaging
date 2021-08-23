@@ -8,7 +8,6 @@ import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.task.TaskExecutor;
 import reactor.core.publisher.Flux;
@@ -20,8 +19,7 @@ import java.util.function.Function;
 
 import static java.lang.Thread.sleep;
 import static java.time.Duration.ofMillis;
-import static md.reactive_messaging.Profiles.JMS_ASYNC_LISTENER;
-import static md.reactive_messaging.Profiles.JMS_SYNC_SENDER;
+import static md.reactive_messaging.Profiles.*;
 
 @SpringBootApplication
 @Slf4j
@@ -38,7 +36,7 @@ public class ReactiveMessagingApplication
             (
                     TaskExecutor taskExecutor,
                     JmsSimplifiedApiManager manager,
-                    Function<String, ConnectionFactory> connectonFactory,
+                    Function<String, ConnectionFactory> connectionFactory,
                     @Qualifier("url") String url,
                     @Qualifier("user-name") String userName,
                     @Qualifier("password") String password,
@@ -53,7 +51,11 @@ public class ReactiveMessagingApplication
                                 try
                                 {
                                     log.info("Sending");
-                                    manager.sendTextMessage(connectonFactory, url, userName, password, queueName, "text");
+                                    manager.sendTextMessage(
+                                            connectionFactory, url,
+                                            userName, password,
+                                            queueName, "text"
+                                    );
                                     sleep(ofMillis(100).toMillis());
                                 }
                                 catch (InterruptedException e)
@@ -68,10 +70,11 @@ public class ReactiveMessagingApplication
 
     @Profile(JMS_ASYNC_LISTENER)
     @Bean
-    ApplicationRunner jmsSyncReceiver
+    ApplicationRunner jmsAsyncListener
             (
                     TaskExecutor taskExecutor,
                     ReactivePublishers publishers,
+                    Function<String, ConnectionFactory> connectionFactory,
                     @Qualifier("url") String url,
                     @Qualifier("user-name") String userName,
                     @Qualifier("password") String password,
@@ -80,24 +83,83 @@ public class ReactiveMessagingApplication
                     @Qualifier("min-backoff") Duration minBackoff
             )
     {
-        return args -> {
-            taskExecutor.execute(() ->
-                    {
-                        final Flux<Message> messages =
-                                publishers.asyncMessages(url, userName, password, queueName, maxAttempts, minBackoff);
-                        messages.subscribe(
-                                message -> {
-                                    log.info("Message {}", message);
-                                },
-                                error -> {
-                                    log.error("Error", error);
-                                },
-                                () -> {
-                                    log.error("Completed");
-                                }
-                        );
-                    }
-            );
-        };
+        return args ->
+                taskExecutor.execute(() ->
+                        {
+                            log.info("jmsAsyncListener Start");
+                            try
+                            {
+                                log.info("jmsAsyncListener Trying");
+                                final Flux<Message> messages =
+                                        publishers.asyncMessages(
+                                                connectionFactory, url,
+                                                userName, password,
+                                                queueName,
+                                                maxAttempts, minBackoff
+                                        );
+                                messages.subscribe(
+                                        message ->
+                                                log.info("Message {}", message),
+                                        error ->
+                                                log.error("Error", error),
+                                        () ->
+                                                log.error("Completed")
+                                );
+                                log.info("jmsAsyncListener Tried");
+                            }
+                            catch (Exception e)
+                            {
+                                log.error("jmsAsyncListener Error", e);
+                            }
+                            log.info("jmsAsyncListener End");
+                        }
+                );
+    }
+
+    @Profile(JMS_SYNC_RECEIVER)
+    @Bean
+    ApplicationRunner jmsSyncReceiver
+            (
+                    TaskExecutor taskExecutor,
+                    ReactivePublishers publishers,
+                    Function<String, ConnectionFactory> connectionFactory,
+                    @Qualifier("url") String url,
+                    @Qualifier("user-name") String userName,
+                    @Qualifier("password") String password,
+                    @Qualifier("queue-name") String queueName,
+                    @Qualifier("max-attempts") long maxAttempts,
+                    @Qualifier("min-backoff") Duration minBackoff
+            )
+    {
+        return args ->
+                taskExecutor.execute(() ->
+                        {
+                            log.info("jmsSyncReceiver Start");
+                            try
+                            {
+                                log.info("jmsSyncReceiver Trying");
+                                final Flux<String> messageBodies = publishers.syncMessages(connectionFactory, url,
+                                        userName, password,
+                                        queueName,
+                                        String.class,
+                                        maxAttempts, minBackoff
+                                );
+                                messageBodies.subscribe(
+                                        body ->
+                                                log.info("Body {}", body),
+                                        error ->
+                                                log.error("Error", error),
+                                        () ->
+                                                log.error("Completed")
+                                );
+                                log.info("jmsSyncReceiver Tried");
+                            }
+                            catch (Exception e)
+                            {
+                                log.error("jmsSyncReceiver Error", e);
+                            }
+                            log.info("jmsSyncReceiver End");
+                        }
+                );
     }
 }

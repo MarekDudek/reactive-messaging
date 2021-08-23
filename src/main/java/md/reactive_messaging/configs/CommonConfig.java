@@ -1,4 +1,4 @@
-package md.reactive_messaging;
+package md.reactive_messaging.configs;
 
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 import md.reactive_messaging.jms.JmsSimplifiedApiOps;

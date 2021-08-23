@@ -1,4 +1,4 @@
-package md.reactive_messaging;
+package md.reactive_messaging.configs;
 
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
