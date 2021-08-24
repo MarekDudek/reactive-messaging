@@ -25,7 +25,7 @@ final class ReactivePublishersTest
 
     private static final long MAX_ATTEMPTS = MAX_VALUE;
     private static final Duration MIN_BACKOFF = ofSeconds(1);
-    private static final Duration TEST_DURATION = ofSeconds(3);
+    private static final Duration TEST_DURATION = ofSeconds(1);
 
     @Test
     void receiving_bodies_synchronously() throws InterruptedException

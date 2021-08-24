@@ -25,7 +25,7 @@ import static java.time.Duration.ofSeconds;
 import static java.time.Instant.now;
 import static java.time.Instant.ofEpochMilli;
 import static md.reactive_messaging.Profiles.*;
-import static md.reactive_messaging.tasks.ExceptionRethrowingHandler.EXCEPTION_RETHROWING_HANDLER;
+import static md.reactive_messaging.tasks.RethrowingHandler.RETHROWING_HANDLER;
 
 @SpringBootApplication
 @Slf4j
@@ -79,7 +79,7 @@ public class ReactiveMessagingApplication
     {
         return args ->
                 taskExecutor.execute(() ->
-                        EXCEPTION_RETHROWING_HANDLER.handle(
+                        RETHROWING_HANDLER.handle(
                                 JmsAsyncListener.<String>builder().
                                         publishers(publishers).jmsOps(jmsOps).
                                         connectionFactory(connectionFactory).url(url).
@@ -112,7 +112,7 @@ public class ReactiveMessagingApplication
     {
         return args ->
                 taskExecutor.execute(() ->
-                        EXCEPTION_RETHROWING_HANDLER.handle(
+                        RETHROWING_HANDLER.handle(
                                 JmsSyncReceiver.builder().
                                         publishers(publishers).
                                         connectionFactory(connectionFactory).url(url).
@@ -143,7 +143,7 @@ public class ReactiveMessagingApplication
     {
         return args ->
                 taskExecutor.execute(() ->
-                        EXCEPTION_RETHROWING_HANDLER.handle(
+                        RETHROWING_HANDLER.handle(
                                 WellBehavedReconnector.builder().
                                         publishers(publishers).jmsOps(jmsOps).
                                         connectionFactory(connectionFactory).url(url).

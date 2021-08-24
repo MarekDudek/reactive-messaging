@@ -127,7 +127,7 @@ final class ReconnectsTest
 
         defaultSubscribe(repeatedM);
 
-        Thread.sleep(ofSeconds(3).toMillis());
+        Thread.sleep(ofSeconds(1).toMillis());
     }
 
     @Test
@@ -182,7 +182,7 @@ final class ReconnectsTest
 
 
         defaultSubscribe(messagesF);
-        Thread.sleep(ofSeconds(3).toMillis());
+        Thread.sleep(ofSeconds(1).toMillis());
     }
 
     private static void defaultSubscribe(Mono<?> mono)
