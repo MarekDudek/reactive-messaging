@@ -14,7 +14,7 @@ import javax.jms.JMSContext;
 import javax.jms.Message;
 import java.util.function.Function;
 
-import static md.reactive_messaging.reactive.ReactiveOps.Reconnect.RECONNECT;
+import static md.reactive_messaging.reactive.Reconnect.RECONNECT;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -22,11 +22,6 @@ public class ReactiveOps
 {
     @NonNull
     public final JmsSimplifiedApiOps ops;
-
-    public enum Reconnect
-    {
-        RECONNECT
-    }
 
     public Mono<ConnectionFactory> factory(Function<String, ConnectionFactory> constructor, String url)
     {

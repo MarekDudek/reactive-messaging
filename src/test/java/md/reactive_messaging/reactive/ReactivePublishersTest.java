@@ -56,7 +56,7 @@ final class ReactivePublishersTest
         final Flux<Message> messageFlux = publishers.asyncMessages(
                 TibjmsConnectionFactory::new, URL,
                 USER_NAME, PASSWORD,
-                QUEUE_NAME,
+                QUEUE_NAME, message -> message,
                 MAX_ATTEMPTS, MIN_BACKOFF
         );
 

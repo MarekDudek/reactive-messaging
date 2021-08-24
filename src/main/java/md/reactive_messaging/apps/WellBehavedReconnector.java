@@ -15,7 +15,7 @@ import java.util.function.Function;
 
 @Builder
 @Slf4j
-public final class JmsAsyncListener<T> implements Runnable
+public final class WellBehavedReconnector implements Runnable
 {
     @NonNull
     private final ReactivePublishers publishers;
@@ -32,7 +32,7 @@ public final class JmsAsyncListener<T> implements Runnable
     @NonNull
     private final String queueName;
     @NonNull
-    private final ThrowingFunction<Message, T, JMSException> converter;
+    private final ThrowingFunction<Message, Object, JMSException> converter;
 
     private final long maxAttempts;
     @NonNull
@@ -42,14 +42,14 @@ public final class JmsAsyncListener<T> implements Runnable
     public void run()
     {
         log.info("Start");
-        publishers.asyncMessages(
+        publishers.asyncMessages3(
                 connectionFactory, url,
                 userName, password,
                 queueName, converter,
                 maxAttempts, minBackoff
         ).subscribe(
-                message ->
-                        log.info("{}", message),
+                success ->
+                        log.info("Success {}", success),
                 error ->
                         log.error("Error", error),
                 () ->

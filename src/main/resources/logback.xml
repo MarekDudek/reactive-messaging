@@ -8,10 +8,10 @@
     <root level="info">
         <appender-ref ref="STDOUT"/>
     </root>
-    <logger name="md.reactive_messaging.jms" level="trace" additivity="false">
+    <logger name="md.reactive_messaging.jms" level="warn" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
-    <logger name="md.reactive_messaging.reactive" level="trace" additivity="false">
+    <logger name="md.reactive_messaging.reactive" level="warn" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
     <logger name="com.tibco" level="trace" additivity="false">

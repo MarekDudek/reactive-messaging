@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.apps.JmsAsyncListener;
 import md.reactive_messaging.apps.JmsSyncReceiver;
 import md.reactive_messaging.apps.JmsSyncSender;
+import md.reactive_messaging.apps.WellBehavedReconnector;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 import md.reactive_messaging.jms.JmsSimplifiedApiOps;
 import md.reactive_messaging.reactive.ReactivePublishers;
@@ -19,8 +20,12 @@ import javax.jms.ConnectionFactory;
 import java.time.Duration;
 import java.util.function.Function;
 
+import static java.time.Duration.between;
 import static java.time.Duration.ofSeconds;
+import static java.time.Instant.now;
+import static java.time.Instant.ofEpochMilli;
 import static md.reactive_messaging.Profiles.*;
+import static md.reactive_messaging.tasks.ExceptionRethrowingHandler.EXCEPTION_RETHROWING_HANDLER;
 
 @SpringBootApplication
 @Slf4j
@@ -73,28 +78,20 @@ public class ReactiveMessagingApplication
             )
     {
         return args ->
-                taskExecutor.execute(() -> {
-                            try
-                            {
-                                log.info("Try task {}", JmsAsyncListener.class.getName());
-                                final JmsAsyncListener listener =
-                                        JmsAsyncListener.builder().
-                                                publishers(publishers).jmsOps(jmsOps).
-                                                connectionFactory(connectionFactory).url(url).
-                                                userName(userName).password(password).
-                                                queueName(queueName).
-                                                maxAttempts(maxAttempts).minBackoff(minBackoff).
-                                                build();
-                                listener.run();
-                                log.info("Success in task {}", JmsAsyncListener.class.getName());
-                            }
-                            catch (Exception e)
-                            {
-                                log.error("Exception in {} task", JmsAsyncListener.class.getName(), e);
-                                throw e;
-                            }
-                            log.info("Critical error in {}", JmsAsyncListener.class.getName());
-                        }
+                taskExecutor.execute(() ->
+                        EXCEPTION_RETHROWING_HANDLER.handle(
+                                JmsAsyncListener.<String>builder().
+                                        publishers(publishers).jmsOps(jmsOps).
+                                        connectionFactory(connectionFactory).url(url).
+                                        userName(userName).password(password).
+                                        queueName(queueName).
+                                        converter(message1 ->
+                                                message1.getBody(String.class)
+                                        ).
+                                        maxAttempts(maxAttempts).minBackoff(minBackoff).
+                                        build(),
+                                JmsAsyncListener.class.getName()
+                        )
                 );
     }
 
@@ -114,28 +111,51 @@ public class ReactiveMessagingApplication
             )
     {
         return args ->
-                taskExecutor.execute(() -> {
-                            try
-                            {
-                                log.info("Try task {}", JmsSyncReceiver.class.getName());
-                                final JmsSyncReceiver receiver =
-                                        JmsSyncReceiver.builder().
-                                                publishers(publishers).
-                                                connectionFactory(connectionFactory).url(url).
-                                                userName(userName).password(password).
-                                                queueName(queueName).
-                                                maxAttempts(maxAttempts).minBackoff(minBackoff).
-                                                build();
-                                receiver.run();
-                                log.info("Success in task {}", JmsSyncReceiver.class.getName());
-                            }
-                            catch (Exception e)
-                            {
-                                log.error("Exception in {} task", JmsSyncReceiver.class.getName(), e);
-                                throw e;
-                            }
-                            log.info("Critical error in {}", JmsSyncReceiver.class.getName());
-                        }
+                taskExecutor.execute(() ->
+                        EXCEPTION_RETHROWING_HANDLER.handle(
+                                JmsSyncReceiver.builder().
+                                        publishers(publishers).
+                                        connectionFactory(connectionFactory).url(url).
+                                        userName(userName).password(password).
+                                        queueName(queueName).
+                                        maxAttempts(maxAttempts).minBackoff(minBackoff).
+                                        build(),
+                                JmsSyncReceiver.class.getName()
+                        )
+                );
+    }
+
+    @Profile(WELL_BEHAVED)
+    @Bean
+    ApplicationRunner wellBehavedReconnector
+            (
+                    TaskExecutor taskExecutor,
+                    ReactivePublishers publishers,
+                    JmsSimplifiedApiOps jmsOps,
+                    Function<String, ConnectionFactory> connectionFactory,
+                    @Qualifier("url") String url,
+                    @Qualifier("user-name") String userName,
+                    @Qualifier("password") String password,
+                    @Qualifier("queue-name") String queueName,
+                    @Qualifier("max-attempts") long maxAttempts,
+                    @Qualifier("min-backoff") Duration minBackoff
+            )
+    {
+        return args ->
+                taskExecutor.execute(() ->
+                        EXCEPTION_RETHROWING_HANDLER.handle(
+                                WellBehavedReconnector.builder().
+                                        publishers(publishers).jmsOps(jmsOps).
+                                        connectionFactory(connectionFactory).url(url).
+                                        userName(userName).password(password).
+                                        queueName(queueName).
+                                        converter(message ->
+                                                between(ofEpochMilli(message.getJMSDeliveryTime()), now())
+                                        ).
+                                        maxAttempts(maxAttempts).minBackoff(minBackoff).
+                                        build(),
+                                WellBehavedReconnector.class.getName()
+                        )
                 );
     }
 }
