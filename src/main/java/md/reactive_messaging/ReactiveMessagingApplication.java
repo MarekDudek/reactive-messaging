@@ -15,6 +15,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Profile;
 import org.springframework.core.task.TaskExecutor;
+import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import javax.jms.ConnectionFactory;
 import java.time.Duration;
@@ -36,11 +37,21 @@ public class ReactiveMessagingApplication
         SpringApplication.run(ReactiveMessagingApplication.class, args);
     }
 
+    @Bean
+    @Qualifier("app")
+    TaskExecutor taskExecutor() {
+        final ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(1);
+        executor.setMaxPoolSize(4);
+        executor.setThreadNamePrefix("app-task-executor-");
+        return executor;
+    }
+
     @Profile(JMS_SYNC_SENDER)
     @Bean
     ApplicationRunner jmsSyncSender
             (
-                    TaskExecutor taskExecutor,
+                    @Qualifier("app") TaskExecutor taskExecutor,
                     JmsSimplifiedApiManager manager,
                     Function<String, ConnectionFactory> connectionFactory,
                     @Qualifier("url") String url,
@@ -65,7 +76,7 @@ public class ReactiveMessagingApplication
     @Bean
     ApplicationRunner jmsAsyncListener
             (
-                    TaskExecutor taskExecutor,
+                    @Qualifier("app") TaskExecutor taskExecutor,
                     ReactivePublishers publishers,
                     JmsSimplifiedApiOps jmsOps,
                     Function<String, ConnectionFactory> connectionFactory,
@@ -99,7 +110,7 @@ public class ReactiveMessagingApplication
     @Bean
     ApplicationRunner jmsSyncReceiver
             (
-                    TaskExecutor taskExecutor,
+                    @Qualifier("app") TaskExecutor taskExecutor,
                     ReactivePublishers publishers,
                     Function<String, ConnectionFactory> connectionFactory,
                     @Qualifier("url") String url,
@@ -129,7 +140,7 @@ public class ReactiveMessagingApplication
     @Bean
     ApplicationRunner wellBehavedReconnector
             (
-                    TaskExecutor taskExecutor,
+                    @Qualifier("app") TaskExecutor taskExecutor,
                     ReactivePublishers publishers,
                     JmsSimplifiedApiOps jmsOps,
                     Function<String, ConnectionFactory> connectionFactory,

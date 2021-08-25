@@ -1,6 +1,5 @@
 package md.reactive_messaging.reactive;
 
-import com.tibco.tibjms.TibjmsConnectionFactory;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -10,6 +9,7 @@ import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.core.publisher.Sinks.EmitResult;
 import reactor.core.publisher.Sinks.Many;
+import reactor.util.retry.Retry;
 
 import javax.jms.*;
 import java.time.Duration;
@@ -223,9 +223,8 @@ public class ReactivePublishers
                             final Optional<JMSRuntimeException> errorSetting =
                                     ops.ops.setMessageListener(consumer, message ->
                                             ops.ops.applyToMessage(message, converter).consume(
-                                                    error -> {
-                                                        log.error("Error converting message {}", message);
-                                                    },
+                                                    error ->
+                                                            log.error("Error converting message {}", message),
                                                     converted -> {
                                                         final EmitResult result = sink.tryEmitNext(converted);
                                                         log.info("Emitting converted from heard message {}", result);
@@ -336,46 +335,73 @@ public class ReactivePublishers
             Duration minBackoff
     )
     {
-        final Mono<TibjmsConnectionFactory> factoryM =
-                Mono.fromCallable(() ->
-                        new TibjmsConnectionFactory(url)
-                ).name("factory-creator").log();
         final Many<Reconnect> reconnectS =
                 Sinks.many().multicast().onBackpressureBuffer();
-        final Mono<JMSContext> contextM =
+
+        final Mono<ConnectionFactory> factoryM =
+                Mono.fromCallable(() ->
+                        connectionFactory.apply(url)
+                ).doOnError(throwable -> {
+                            //reconnect(reconnectS, "Error creating connection factory, reconnect emitted {}", throwable);
+                        }
+                ).name("factory-creator").log();
+
+        final Mono<JMSContext> contextM2 =
                 factoryM.flatMap(factory ->
                         Mono.fromCallable(() -> {
                                     log.info("Creating context");
                                     final JMSContext context = factory.createContext(userName, password);
                                     log.info("Created context");
                                     context.setExceptionListener(exception -> {
-                                                final EmitResult result = reconnectS.tryEmitNext(RECONNECT);
-                                                log.error("Heard error in context {}, reconnect emitted {}", context, result, exception);
+                                                reconnect(reconnectS, "Heard in context, reconnect emitted {}", exception);
+                                                context.close();
                                             }
                                     );
                                     return context;
                                 }
+                        ).doOnError(throwable ->
+                                reconnect(reconnectS, "Error creating context, reconnect emitted {}", throwable)
                         ).name("context-creator-exception-listener-setter").log()
                 ).name("listened-to-context").log();
+
+
         final Mono<JMSContext> retriedM =
-                contextM.retryWhen(backoff(maxAttempts, minBackoff))
-                        .name("retryer").log();
+                contextM2.
+                        retryWhen(Retry.backoff(maxAttempts, minBackoff)).
+                        doOnSubscribe(subscription ->
+                                log.info("Subscribing to retried {}", subscription)
+                        ).
+                        name("retryer").log();
+
         final Flux<JMSContext> repeatedM =
-                retriedM.repeatWhen(repeat ->
-                        reconnectS.asFlux().name("context-reconnects").log()
-                ).name("repeater").log();
+                retriedM.
+                        repeatWhen(repeat ->
+                                reconnectS.asFlux().name("context-reconnects").log()
+                        ).
+                        doOnSubscribe(subscription ->
+                                log.info("Subscribing do retried {}", subscription)
+                        ).
+                        name("repeater").log();
 
         final Flux<JMSConsumer> consumerF =
                 repeatedM.flatMap(context ->
                         Mono.fromCallable(() ->
-                                        context.createQueue(queueName)
-                                ).name("queue-creator").log()
-                                .flatMap(queue ->
-                                        Mono.fromCallable(() ->
-                                                context.createConsumer(queue)
-                                        ).name("consumer-creator").log()
-                                ).name("queue-consumer-creator").log()
+                                context.createQueue(queueName)
+                        ).doOnError(throwable -> {
+                                    //reconnect(reconnectS, "Error creating queue, reconnect emitted {}", throwable);
+                                    //context.close();
+                                }
+                        ).name("queue-creator").log().flatMap(queue ->
+                                Mono.fromCallable(() ->
+                                        context.createConsumer(queue)
+                                ).doOnError(throwable -> {
+                                            //reconnect(reconnectS, "Error creating consumer, reconnect emitted {}", throwable);
+                                            //context.close();
+                                        }
+                                ).name("consumer-creator").log()
+                        ).name("queue-consumer-creator").log()
                 ).name("queue-consumers").log();
+
         return
                 consumerF.flatMap(consumer -> {
                             Many<T> messageS = Sinks.many().unicast().onBackpressureBuffer();
@@ -394,6 +420,15 @@ public class ReactivePublishers
                             );
                             return messageS.asFlux().name("message-listener-setter").log();
                         }
+                ).doOnError(throwable -> {
+                            // reconnect(reconnectS, "Error setting message listener, reconnect emitted {}", throwable);
+                        }
                 ).name("messages").log();
+    }
+
+    private static <T> void reconnect(Many<Reconnect> reconnectS, String format, Throwable throwable)
+    {
+        final EmitResult result = reconnectS.tryEmitNext(RECONNECT);
+        log.warn(format, result, throwable);
     }
 }

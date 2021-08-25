@@ -7,25 +7,26 @@ import reactor.core.scheduler.Schedulers;
 import java.util.concurrent.CountDownLatch;
 
 @Slf4j
-public final class SimpleMain
+public final class SimpleFlux
 {
-    public static void main(String[] args) throws InterruptedException
+    public static void main(String[] args)
     {
-        new SimpleMain().run();
+        new SimpleFlux().run();
     }
 
     public void run()
     {
         final Flux<Integer> numbers =
                 Flux.generate(
-                        () -> 1,
+                        () -> 0,
                         (i, sink) -> {
-                            sink.next(i);
+                            if (i < 1000)
+                                sink.next(i);
+                            else
+                                sink.complete();
                             return i + 1;
                         },
-                        i -> {
-                            log.info("Finished with {}", i);
-                        }
+                        i -> log.info("Finished with {}", i)
                 );
         final Flux<Integer> dropped = numbers.onBackpressureDrop(item -> log.error("Publisher dropped {}", item));
         final Flux<Integer> published = dropped.publishOn(Schedulers.single());
@@ -40,7 +41,7 @@ public final class SimpleMain
         log.info("Done");
     }
 
-    private static void waitForCtrlC()
+    static void waitForCtrlC()
     {
         final CountDownLatch done = new CountDownLatch(1);
         Runtime.getRuntime().addShutdownHook(

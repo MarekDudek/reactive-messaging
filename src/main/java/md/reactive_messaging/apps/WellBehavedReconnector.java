@@ -42,29 +42,19 @@ public final class WellBehavedReconnector implements Runnable
     public void run()
     {
         log.info("Start");
-        while (!Thread.currentThread().isInterrupted())
-        {
-            try
-            {
-                publishers.asyncMessages3(
-                        connectionFactory, url,
-                        userName, password,
-                        queueName, converter,
-                        maxAttempts, minBackoff
-                ).subscribe(
-                        success ->
-                                log.info("Success {}", success),
-                        error ->
-                                log.error("Error", error),
-                        () ->
-                                log.error("Completed")
-                );
-            }
-            catch (Error e)
-            {
-                log.error("Restarting after", e);
-            }
-        }
-        log.info("Interrupted");
+        publishers.asyncMessages3(
+                connectionFactory, url,
+                userName, password,
+                queueName, converter,
+                maxAttempts, minBackoff
+        ).subscribe(
+                success ->
+                        log.info("Success {}", success),
+                error ->
+                        log.error("Error", error),
+                () ->
+                        log.error("Completed")
+        );
+        log.info("Finish");
     }
 }
