@@ -6,6 +6,7 @@ import lombok.Value;
 import java.util.Optional;
 import java.util.function.Consumer;
 import java.util.function.Function;
+import java.util.function.Predicate;
 
 import static java.util.Optional.empty;
 
@@ -64,6 +65,19 @@ public interface Either<L, R>
     default R rightOr(final R value)
     {
         return apply(left -> value, right -> right);
+    }
+
+    default <T> Either<T, T> filter(final Predicate<T> predicate)
+    {
+        return apply(
+                left -> Either.left((T) left),
+                right -> {
+                    final T cast = (T) right;
+                    return predicate.test(cast)
+                            ? Either.right(cast)
+                            : Either.left(cast);
+                }
+        );
     }
 
     default <T> Either<L, T> map(final Function<R, T> function)

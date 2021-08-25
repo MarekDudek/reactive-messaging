@@ -7,6 +7,7 @@ import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestMethodOrder;
 import reactor.core.publisher.Flux;
+import reactor.test.StepVerifier;
 
 import javax.jms.Message;
 import java.time.Duration;
@@ -69,5 +70,75 @@ final class ReactivePublishersTest
         ).start();
 
         sleep(TEST_DURATION.toMillis());
+    }
+
+    @Test
+    void wellBehavedWorksCorrectlyOnBrokerDown() throws InterruptedException
+    {
+        final Flux<?> flux =
+                publishers.asyncMessages5(
+                        TibjmsConnectionFactory::new, URL,
+                        USER_NAME, PASSWORD,
+                        QUEUE_NAME, message -> "test message",
+                        MAX_ATTEMPTS, MIN_BACKOFF
+                );
+        StepVerifier.create(flux).
+                expectSubscription().
+                verifyTimeout(ofSeconds(10));
+    }
+
+    @Test
+    void wellBehavedWorksCorrectlyOnBrokerUp() throws InterruptedException
+    {
+        final Flux<?> flux =
+                publishers.asyncMessages5(
+                        TibjmsConnectionFactory::new, URL,
+                        USER_NAME, PASSWORD,
+                        QUEUE_NAME, message -> "test message",
+                        MAX_ATTEMPTS, MIN_BACKOFF
+                );
+        StepVerifier.create(flux).
+                expectSubscription().
+                expectNextCount(1).
+                verifyComplete();
+    }
+
+    @Test
+    void wellBehavedWorksCorrectlyOnBrokerRestarting() throws InterruptedException
+    {
+        final Flux<?> flux =
+                publishers.asyncMessages5(
+                        TibjmsConnectionFactory::new, URL,
+                        USER_NAME, PASSWORD,
+                        QUEUE_NAME, message -> "test message",
+                        MAX_ATTEMPTS, MIN_BACKOFF
+                );
+        StepVerifier.create(flux).
+                expectSubscription().
+                expectNextMatches(next -> true).
+                thenRequest(1).
+                verifyComplete();
+    }
+
+    @Test
+    void wellBehavedInTheFree() throws InterruptedException
+    {
+        final Flux<?> flux =
+                publishers.asyncMessages5(
+                        TibjmsConnectionFactory::new, URL,
+                        USER_NAME, PASSWORD,
+                        QUEUE_NAME, message -> "CONSTANT MESSAGE",
+                        MAX_ATTEMPTS, MIN_BACKOFF
+                );
+        flux.subscribe(
+                success ->
+                        log.info("Success {}", success),
+                error ->
+                        log.error("Error", error),
+                () ->
+                        log.warn("Completed")
+        );
+        log.info("Finish");
+        Thread.sleep(Duration.ofMinutes(60).toMillis());
     }
 }

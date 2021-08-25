@@ -3,6 +3,8 @@ package md.reactive_messaging.functional;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.jupiter.api.Test;
 
+import java.util.function.Predicate;
+
 import static java.util.Optional.of;
 import static md.reactive_messaging.functional.Either.left;
 import static md.reactive_messaging.functional.Either.right;
@@ -44,6 +46,21 @@ final class EitherTest
         assertThat(r).isEqualTo(529);
         final String l = LEFT.apply(String::toUpperCase, null);
         assertThat(l).isEqualTo("ERROR");
+    }
+
+    @Test
+    void predicate()
+    {
+        final Predicate<Integer> even = n -> n % 2 == 0;
+        final Either<Integer, Integer> wrong = left(23);
+
+        final Either<Integer, Integer> wrongRight = right(23);
+        assertThat(wrongRight.filter(even)).isEqualTo(wrong);
+
+        final Either<Integer, Integer> correctRight = right(22);
+        assertThat(correctRight.filter(even)).isEqualTo(correctRight);
+
+        assertThat(wrong.filter(even)).isEqualTo(wrong);
     }
 
     @Test

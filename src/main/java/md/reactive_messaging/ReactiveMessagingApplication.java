@@ -21,10 +21,7 @@ import javax.jms.ConnectionFactory;
 import java.time.Duration;
 import java.util.function.Function;
 
-import static java.time.Duration.between;
 import static java.time.Duration.ofSeconds;
-import static java.time.Instant.now;
-import static java.time.Instant.ofEpochMilli;
 import static md.reactive_messaging.Profiles.*;
 import static md.reactive_messaging.tasks.RethrowingHandler.RETHROWING_HANDLER;
 
@@ -39,7 +36,8 @@ public class ReactiveMessagingApplication
 
     @Bean
     @Qualifier("app")
-    TaskExecutor taskExecutor() {
+    TaskExecutor taskExecutor()
+    {
         final ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(1);
         executor.setMaxPoolSize(4);
@@ -161,7 +159,8 @@ public class ReactiveMessagingApplication
                                         userName(userName).password(password).
                                         queueName(queueName).
                                         converter(message ->
-                                                between(ofEpochMilli(message.getJMSDeliveryTime()), now())
+                                                        "constant message"
+                                                //between(ofEpochMilli(message.getJMSDeliveryTime()), now())
                                         ).
                                         maxAttempts(maxAttempts).minBackoff(minBackoff).
                                         build(),

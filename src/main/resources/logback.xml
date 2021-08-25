@@ -15,10 +15,10 @@
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="FILE"/>
     </root>
-    <logger name="md.reactive_messaging.jms" level="warn" additivity="false">
+    <logger name="md.reactive_messaging.jms" level="info" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
-    <logger name="md.reactive_messaging.reactive" level="warn" additivity="false">
+    <logger name="md.reactive_messaging.reactive" level="info" additivity="false">
         <appender-ref ref="STDOUT"/>
     </logger>
     <logger name="com.tibco" level="trace" additivity="false">

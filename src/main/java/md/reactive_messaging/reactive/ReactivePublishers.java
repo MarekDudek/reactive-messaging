@@ -3,6 +3,7 @@ package md.reactive_messaging.reactive;
 import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import md.reactive_messaging.functional.Either;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -12,11 +13,14 @@ import reactor.core.publisher.Sinks.Many;
 import reactor.util.retry.Retry;
 
 import javax.jms.*;
+import java.lang.IllegalStateException;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.function.Function;
 
+import static md.reactive_messaging.functional.Either.right;
 import static md.reactive_messaging.reactive.Reconnect.RECONNECT;
+import static reactor.core.publisher.Sinks.EmitResult.OK;
 import static reactor.util.retry.Retry.backoff;
 
 @RequiredArgsConstructor
@@ -342,7 +346,7 @@ public class ReactivePublishers
                 Mono.fromCallable(() ->
                         connectionFactory.apply(url)
                 ).doOnError(throwable -> {
-                            //reconnect(reconnectS, "Error creating connection factory, reconnect emitted {}", throwable);
+                            reconnect(reconnectS, "Error creating connection factory, reconnect emitted {}", throwable);
                         }
                 ).name("factory-creator").log();
 
@@ -430,5 +434,287 @@ public class ReactivePublishers
     {
         final EmitResult result = reconnectS.tryEmitNext(RECONNECT);
         log.warn(format, result, throwable);
+    }
+
+    public <T> Flux<T> asyncMessages4(
+            Function<String, ConnectionFactory> connectionFactory,
+            String url,
+            String userName,
+            String password,
+            String queueName,
+            ThrowingFunction<Message, T, JMSException> converter,
+            long maxAttempts,
+            Duration minBackoff
+    )
+    {
+        final Many<Reconnect> reconnectS =
+                Sinks.many().multicast().onBackpressureBuffer();
+
+        final ConnectionFactory factory = connectionFactory.apply(url);
+
+        final Mono<JMSContext> contextCreationM =
+                ops.ops.createContext(factory, userName, password).<Mono<JMSContext>>apply(
+                        Mono::error,
+                        Mono::just
+                ).name("context-creation");
+
+        @Deprecated final Mono<JMSContext> reconnectingContextM =
+                contextCreationM.
+                        doOnError(throwable ->
+                                failOnFailure(nextReconnect(reconnectS)
+                                )
+                        ).name("reconnecting-context-creation").log();
+
+        final Mono<JMSContext> retriedContextCreationM =
+                contextCreationM.flatMap(
+                        contextCreated ->
+                                contextCreationM
+                                        .retryWhen(backoff(maxAttempts, minBackoff)).name("resubscribed-creations")
+                                        .onErrorResume(error -> {
+                                                    log.error("Error retrying context creation");
+                                                    ops.ops.closeContext(contextCreated).
+                                                            ifPresent(exception -> {
+                                                                        log.error("Error closing retried context {}", contextCreated);
+                                                                    }
+                                                            );
+                                                    return contextCreationM;
+                                                }
+                                        ).name("resumed")
+                );
+
+        final Flux<JMSContext> repeatedContextCreationF =
+                retriedContextCreationM.flatMapMany(
+                        retriedContext ->
+                                retriedContextCreationM
+                                        .repeatWhen(repeat -> reconnectS.asFlux())
+                                        .onErrorResume(error -> {
+                                                    log.error("Error repeating retried context creation");
+                                                    notifyOnFailure(
+                                                            nextReconnect(reconnectS)
+                                                    );
+                                                    ops.ops.closeContext(retriedContext).
+                                                            ifPresent(exception -> {
+                                                                        log.error("Error closing repeated context {}", retriedContext);
+                                                                    }
+                                                            );
+                                                    return retriedContextCreationM;
+                                                }
+                                        )
+                );
+
+
+        @Deprecated final Mono<JMSContext> retriedContextM =
+                reconnectingContextM.retryWhen(backoff(maxAttempts, minBackoff)).name("retried-context-creation").log().
+                        doOnError(throwable ->
+                                failOnFailure(nextReconnect(reconnectS)
+                                )
+                        );
+        @Deprecated final Flux<JMSContext> repeatedContextsF =
+                retriedContextM.repeatWhen(
+                        repeat ->
+                                reconnectS.asFlux().name("reconnect-events").log()
+                ).name("repeated-context-creation").log().map(context -> {
+
+                    return context;
+                });
+
+        final Flux<T> out =
+                repeatedContextCreationF.flatMap(context -> {
+                            try
+                            {
+                                final T t = converter.apply(null);
+                                return Mono.just(t);
+                            }
+                            catch (JMSException e)
+                            {
+                                return Mono.error(e);
+                            }
+                        }
+                );
+
+        return out;
+    }
+
+    public <T> Flux<T> asyncMessages5(
+            Function<String, ConnectionFactory> connectionFactory,
+            String url,
+            String userName,
+            String password,
+            String queueName,
+            ThrowingFunction<Message, T, JMSException> converter,
+            long maxAttempts,
+            Duration minBackoff
+    )
+    {
+        // factory
+
+        final String factoryFromCallableName = "factory-from-callable";
+        final Mono<ConnectionFactory> factoryFromCallable =
+                Mono.fromCallable(() -> {
+                            log.info("Creating factory from callable");
+                            return connectionFactory.apply(url);
+                        }
+                ).doOnNext(factory -> log.info("Next {} {}", factoryFromCallableName, factory)
+                ).doOnSuccess(factory -> log.info("Success {} {}", factoryFromCallableName, factory)
+                ).doOnError(error -> log.error("Error {} {}", factoryFromCallableName, error.getMessage())
+                ).cache(
+                ).name(factoryFromCallableName);
+
+        final String factoryFunctionallyName = "factory-functionally";
+        final Mono<ConnectionFactory> factoryFunctionally =
+                ops.ops.instantiateConnectionFactory(connectionFactory, url).<Mono<ConnectionFactory>>apply(
+                        Mono::error,
+                        Mono::just
+                ).doOnNext(factory -> log.info("Next {} {}", factoryFunctionallyName, factory)
+                ).doOnSuccess(factory -> log.info("Success {} {}", factoryFunctionallyName, factory)
+                ).doOnError(error -> log.error("Error {}: {}", factoryFunctionallyName, error.getMessage())
+                ).cache(
+                ).name(factoryFunctionallyName);
+
+        // context creation
+
+        final String contextFromCallableName = "context-from-callable";
+        final Mono<JMSContext> contextFromCallable =
+                factoryFromCallable.flatMap(factory ->
+                        Mono.fromCallable(() -> {
+                                    log.info("Creating context from callable");
+                                    return factory.createContext(userName, password);
+                                }
+                        )
+                ).doOnNext(context -> log.info("Next {} {}", contextFromCallableName, context)
+                ).doOnSuccess(context -> log.info("Success {} {}", contextFromCallableName, context)
+                ).doOnError(error -> log.error("Error {}: {}", contextFromCallableName, error.getMessage())
+                ).name(contextFromCallableName);
+
+        final String contextFunctionallyName = "context-creation-functional";
+        final Mono<JMSContext> contextCreationFunctional =
+                factoryFunctionally.flatMap(factory -> {
+                            log.info("Creating context functionally");
+                            return ops.ops.createContext(factory, userName, password).apply(
+                                    Mono::error,
+                                    Mono::just
+                            );
+                        }
+                ).doOnNext(context -> log.info("Next {} {}", contextFunctionallyName, context)
+                ).doOnSuccess(context -> log.info("Success {} {}", contextFunctionallyName, context)
+                ).doOnError(error -> log.error("Error {}: {}", contextFunctionallyName, error.getMessage())
+                ).name(contextFunctionallyName);
+
+
+        // reconnects
+
+        final Many<Reconnect> reconnectSink =
+                Sinks.many().multicast().onBackpressureBuffer();
+
+        // retrying
+
+        final String retriedStraightName = "retrying-straight";
+        final Mono<JMSContext> retriedStraight =
+                contextFromCallable.
+                        retryWhen(backoff(maxAttempts, minBackoff)).flatMap(context ->
+                                ops.ops.setExceptionListener(context,
+                                        exception ->
+                                                notifyOnFailure(
+                                                        nextReconnect(reconnectSink)
+                                                )
+                                ).<Mono<JMSContext>>map(
+                                        Mono::error
+                                ).orElse(
+                                        Mono.just(context)
+                                )
+                        ).
+                        doOnNext(context -> log.info("Next {} {}", retriedStraightName, context)).
+                        doOnSuccess(context -> log.info("Success {} {}", retriedStraightName, context)).
+                        doOnError(error -> log.error("Error {}: {}", retriedStraightName, error)).
+                        name(retriedStraightName);
+
+        final String retriedResumingName = "retrying-resuming";
+        final Mono<JMSContext> retriedResuming =
+                contextCreationFunctional.onErrorResume(error -> {
+                            log.error("Error creating context, retrying functionally");
+                            return contextCreationFunctional.retryWhen(backoff(maxAttempts, minBackoff));
+                        }
+                ).doOnNext(context -> log.info("Next {} {}", retriedResumingName, context)
+                ).doOnSuccess(context -> log.info("Success {} {}", retriedResumingName, context)
+                ).doOnError(error -> log.error("Error {}: {}", retriedResumingName, error)
+                ).name(retriedResumingName);
+
+        final Mono<JMSContext> retriedContextCreationPreviousStopped =
+                contextCreationFunctional.flatMap(
+                        contextCreated ->
+                                contextCreationFunctional
+                                        .retryWhen(backoff(maxAttempts, minBackoff)).name("resubscribed-creations")
+                                        .onErrorResume(error -> {
+                                                    log.error("Error retrying context creation");
+                                                    ops.ops.closeContext(contextCreated).
+                                                            ifPresent(exception -> {
+                                                                        log.error("Error closing retried context {}", contextCreated);
+                                                                    }
+                                                            );
+                                                    return contextCreationFunctional;
+                                                }
+                                        ).name("resumed")
+                );
+
+        // repeating
+
+        final String repeatedStraightName = "repeated-straight";
+        final Flux<JMSContext> repeatedStraight =
+                retriedStraight.repeatWhen(
+                        repeat -> {
+                            final String reconnectName = "reconnect";
+                            return reconnectSink.asFlux().
+                                    doOnNext(reconnect -> log.info("Next {}", reconnectName)).
+                                    doOnComplete(() -> log.info("Completed {}", reconnectName)).
+                                    doOnError(error -> log.error("Error {}: {}", reconnectName, error.getMessage())).
+                                    name(reconnectName);
+                        }
+                ).doOnNext(context -> log.info("Next {} {}", repeatedStraightName, context)
+                ).doOnComplete(() -> log.info("Completed {}", repeatedStraightName)
+                ).doOnError(error -> log.error("Error {}: {}", repeatedStraightName, error)
+                ).name(repeatedStraightName);
+
+        // sink
+
+        return repeatedStraight.flatMap(context -> {
+                    try
+                    {
+                        final T t = converter.apply(null);
+                        return Mono.just(t);
+                    }
+                    catch (JMSException e)
+                    {
+                        return Mono.error(e);
+                    }
+                }
+        );
+    }
+
+    private static Either<EmitResult, EmitResult> nextReconnect(Many<Reconnect> reconnectS)
+    {
+        final EmitResult emitted = reconnectS.tryEmitNext(RECONNECT);
+        return right(emitted).filter(result -> result == OK);
+    }
+
+    private static void notifyOnFailure(Either<EmitResult, EmitResult> result)
+    {
+        result.consume(
+                failure ->
+                        log.error("Failed to emit reconnect {}", failure),
+                success ->
+                        log.info("Reconnected on error creating context")
+        );
+    }
+
+    private static void failOnFailure(Either<EmitResult, EmitResult> result)
+    {
+        result.consume(
+                failure -> {
+                    throw new IllegalStateException(failure.toString());
+                },
+                success ->
+                        log.info("Reconnected on error creating context")
+        );
+
     }
 }

@@ -23,7 +23,7 @@ public class JmsSimplifiedApiOps
 
     public Either<JMSRuntimeException, JMSContext> createContext(ConnectionFactory factory, String userName, String password)
     {
-        return biFunction(factory::createContext, userName, password, "create-connection-factory", log::info, ERROR);
+        return biFunction(factory::createContext, userName, password, "create-context", log::info, ERROR);
     }
 
     public Optional<JMSRuntimeException> closeContext(JMSContext context)
