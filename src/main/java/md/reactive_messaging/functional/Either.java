@@ -80,6 +80,18 @@ public interface Either<L, R>
         );
     }
 
+    default Either<L, R> filter(final Predicate<R> predicate, L value)
+    {
+        return apply(
+                left -> left(value),
+                right ->
+                        predicate.test(right)
+                                ? right(right)
+                                : left(value)
+        );
+    }
+
+
     default <T> Either<L, T> map(final Function<R, T> function)
     {
         return apply(Either::left, right -> right(function.apply(right)));

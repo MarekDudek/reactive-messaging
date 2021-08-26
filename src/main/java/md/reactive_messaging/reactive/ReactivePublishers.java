@@ -19,6 +19,8 @@ import java.util.Optional;
 import java.util.function.Function;
 
 import static md.reactive_messaging.functional.Either.right;
+import static md.reactive_messaging.functional.Functional.consume;
+import static md.reactive_messaging.functional.Functional.error;
 import static md.reactive_messaging.reactive.Reconnect.RECONNECT;
 import static reactor.core.publisher.Sinks.EmitResult.OK;
 import static reactor.util.retry.Retry.backoff;
@@ -625,7 +627,7 @@ public class ReactivePublishers
                         ).
                         doOnNext(context -> log.info("Next {} {}", retriedStraightName, context)).
                         doOnSuccess(context -> log.info("Success {} {}", retriedStraightName, context)).
-                        doOnError(error -> log.error("Error {}: {}", retriedStraightName, error)).
+                        doOnError(error -> log.error("Error {}: {}", retriedStraightName, error.getMessage())).
                         name(retriedStraightName);
 
         final String retriedResumingName = "retrying-resuming";
@@ -636,25 +638,8 @@ public class ReactivePublishers
                         }
                 ).doOnNext(context -> log.info("Next {} {}", retriedResumingName, context)
                 ).doOnSuccess(context -> log.info("Success {} {}", retriedResumingName, context)
-                ).doOnError(error -> log.error("Error {}: {}", retriedResumingName, error)
+                ).doOnError(error -> log.error("Error {}: {}", retriedResumingName, error.getMessage())
                 ).name(retriedResumingName);
-
-        final Mono<JMSContext> retriedContextCreationPreviousStopped =
-                contextCreationFunctional.flatMap(
-                        contextCreated ->
-                                contextCreationFunctional
-                                        .retryWhen(backoff(maxAttempts, minBackoff)).name("resubscribed-creations")
-                                        .onErrorResume(error -> {
-                                                    log.error("Error retrying context creation");
-                                                    ops.ops.closeContext(contextCreated).
-                                                            ifPresent(exception -> {
-                                                                        log.error("Error closing retried context {}", contextCreated);
-                                                                    }
-                                                            );
-                                                    return contextCreationFunctional;
-                                                }
-                                        ).name("resumed")
-                );
 
         // repeating
 
@@ -671,12 +656,35 @@ public class ReactivePublishers
                         }
                 ).doOnNext(context -> log.info("Next {} {}", repeatedStraightName, context)
                 ).doOnComplete(() -> log.info("Completed {}", repeatedStraightName)
-                ).doOnError(error -> log.error("Error {}: {}", repeatedStraightName, error)
+                ).doOnError(error -> log.error("Error {}: {}", repeatedStraightName, error.getMessage())
                 ).name(repeatedStraightName);
+
+        final String consumersName = "consumers";
+        final Flux<JMSConsumer> consumers =
+                repeatedStraight.flatMap(context ->
+                        ops.ops.createQueue(context, queueName).flatMap(queue ->
+                                ops.ops.createConsumer(context, queue)
+                        ).apply(
+                                errorCreatingQueueOrConsumer -> {
+                                    consume(
+                                            ops.ops.closeContext(context),
+                                            errorClosing ->
+                                                    log.warn("Closing context failed: {}", errorClosing.getMessage()),
+                                            () ->
+                                                    log.info("Closing context succeeded")
+                                    );
+                                    return Mono.error(errorCreatingQueueOrConsumer);
+                                },
+                                Mono::just
+                        )
+                ).doOnNext(consumer -> log.info("Next {} {}", consumersName, consumer)
+                ).doOnComplete(() -> log.info("Completed {}", consumersName)
+                ).doOnError(error -> log.error("Error {}: {}", consumersName, error.getMessage())
+                ).name(consumersName);
 
         // sink
 
-        return repeatedStraight.flatMap(context -> {
+        return consumers.flatMap(context -> {
                     try
                     {
                         final T t = converter.apply(null);
@@ -709,9 +717,8 @@ public class ReactivePublishers
     private static void failOnFailure(Either<EmitResult, EmitResult> result)
     {
         result.consume(
-                failure -> {
-                    throw new IllegalStateException(failure.toString());
-                },
+                failure ->
+                        error(new IllegalStateException(failure.toString())),
                 success ->
                         log.info("Reconnected on error creating context")
         );
