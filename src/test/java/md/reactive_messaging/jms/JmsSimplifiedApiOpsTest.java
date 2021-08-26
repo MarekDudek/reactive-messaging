@@ -32,7 +32,7 @@ final class JmsSimplifiedApiOpsTest
     void synchronous_send_text_message()
     {
         final Either<JMSRuntimeException, ConnectionFactory> factory =
-                OPS.instantiateConnectionFactory(TibjmsConnectionFactory::new, URL);
+                OPS.connectionFactoryForUrl(TibjmsConnectionFactory::new, URL);
         final Either<JMSRuntimeException, JMSContext> context =
                 factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();
@@ -60,7 +60,7 @@ final class JmsSimplifiedApiOpsTest
     void synchronous_receive_text_message()
     {
         final Either<JMSRuntimeException, ConnectionFactory> factory =
-                OPS.instantiateConnectionFactory(TibjmsConnectionFactory::new, URL);
+                OPS.connectionFactoryForUrl(TibjmsConnectionFactory::new, URL);
         final Either<JMSRuntimeException, JMSContext> context =
                 factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();
@@ -87,7 +87,7 @@ final class JmsSimplifiedApiOpsTest
     void asynchronous_send_text_message()
     {
         final Either<JMSRuntimeException, ConnectionFactory> factory =
-                OPS.instantiateConnectionFactory(TibjmsConnectionFactory::new, URL);
+                OPS.connectionFactoryForUrl(TibjmsConnectionFactory::new, URL);
         final Either<JMSRuntimeException, JMSContext> context =
                 factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();
@@ -119,7 +119,7 @@ final class JmsSimplifiedApiOpsTest
     void asynchronous_receive_text_message() throws InterruptedException
     {
         final Either<JMSRuntimeException, ConnectionFactory> factory =
-                OPS.instantiateConnectionFactory(TibjmsConnectionFactory::new, URL);
+                OPS.connectionFactoryForUrl(TibjmsConnectionFactory::new, URL);
         final Either<JMSRuntimeException, JMSContext> context =
                 factory.flatMap(f -> OPS.createContext(f, USER_NAME, PASSWORD));
         assertThat(context.isRight()).isTrue();

@@ -16,14 +16,14 @@ public class JmsSimplifiedApiOps
 {
     private static final BiConsumer<String, Object[]> ERROR = log::error;
 
-    public Either<JMSRuntimeException, ConnectionFactory> instantiateConnectionFactory(Function<String, ConnectionFactory> constructor, String url)
+    public Either<JMSRuntimeException, ConnectionFactory> connectionFactoryForUrl(Function<String, ConnectionFactory> constructor, String url)
     {
-        return function(constructor, url, "create-connection-factory", log::info, ERROR);
+        return function(constructor, url, "connection-factory-for-url", log::info, ERROR);
     }
 
-    public Either<JMSException, ConnectionFactory> instantiateConnectionFactory2(ThrowingFunction<String, ConnectionFactory, JMSException> constructor, String url)
+    public Either<JMSException, ConnectionFactory> connectionFactoryForUrlChecked(ThrowingFunction<String, ConnectionFactory, JMSException> constructor, String url)
     {
-        return throwingFunction(constructor, url, "create-connection-factory", log::info, ERROR);
+        return throwingFunction(constructor, url, "connection-factory-for-url-checked", log::info, ERROR);
     }
 
     public Either<JMSRuntimeException, JMSContext> createContext(ConnectionFactory factory, String userName, String password)

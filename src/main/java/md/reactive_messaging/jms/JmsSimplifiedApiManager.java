@@ -37,7 +37,7 @@ public final class JmsSimplifiedApiManager
             )
     {
         return
-                ops.instantiateConnectionFactory(constructor, url).flatMap(factory ->
+                ops.connectionFactoryForUrl(constructor, url).flatMap(factory ->
                         ops.createContext(factory, userName, password).flatMap(context -> {
                                     Either<JMSRuntimeException, Object> sent =
                                             ops.createQueue(context, queueName).flatMap(queue ->
@@ -66,7 +66,7 @@ public final class JmsSimplifiedApiManager
             )
     {
         return
-                ops.instantiateConnectionFactory2(constructor, url).biMap(
+                ops.connectionFactoryForUrlChecked(constructor, url).biMap(
                         jmsException ->
                                 new JMSRuntimeException(jmsException.getMessage()),
                         identity()

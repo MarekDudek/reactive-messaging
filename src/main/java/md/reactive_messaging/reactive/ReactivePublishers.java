@@ -93,7 +93,7 @@ public class ReactivePublishers
             )
     {
         final Mono<ConnectionFactory> factoryM =
-                ops.instantiateConnectionFactory2(connectionFactory, url).<Mono<ConnectionFactory>>apply(
+                ops.connectionFactoryForUrlChecked(connectionFactory, url).<Mono<ConnectionFactory>>apply(
                                 Mono::error,
                                 Mono::just
                         ).doOnEach(onEach("factory")).name("factory").
@@ -159,7 +159,11 @@ public class ReactivePublishers
                 ).doOnEach(onEach("repeated")).name("repeated");
     }
 
-    private Flux<JMSConsumer> createQueueAndConsumer(Flux<JMSContext> contextM, String queueName)
+    private Flux<JMSConsumer> createQueueAndConsumer
+            (
+                    Flux<JMSContext> contextM,
+                    String queueName
+            )
     {
         return
                 contextM.flatMap(context ->
