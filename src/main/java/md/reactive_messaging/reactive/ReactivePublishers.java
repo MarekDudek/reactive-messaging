@@ -14,7 +14,7 @@ import java.time.Duration;
 import java.util.function.Function;
 
 import static md.reactive_messaging.functional.Functional.consume;
-import static md.reactive_messaging.reactive.ReactiveOps.onEach;
+import static md.reactive_messaging.reactive.ReactiveOps.*;
 import static reactor.util.retry.Retry.backoff;
 
 @RequiredArgsConstructor
@@ -57,7 +57,23 @@ public class ReactivePublishers
                 repeatWhen(repeat -> reconnect.asFlux());
     }
 
-    public <T> Flux<T> asyncMessagesFromCallable
+    public <T> Flux<T> asyncMessages(
+            ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
+            String url,
+            String userName,
+            String password,
+            String queueName,
+            ThrowingFunction<Message, T, JMSException> converter,
+            long maxAttempts,
+            Duration minBackoff
+    )
+    {
+        final Mono<JMSContext> contextM = factoryContext(connectionFactory, url, userName, password);
+        final Flux<JMSContext> reliable = retriedAndRepeated(contextM, maxAttempts, minBackoff);
+        return listenOn(reliable, queueName, converter);
+    }
+
+    public <T> Flux<T> asyncMessagesAlt
             (
                     Function<String, ConnectionFactory> connectionFactory,
                     String url,
@@ -69,137 +85,12 @@ public class ReactivePublishers
                     Duration minBackoff
             )
     {
-        final String factoryName = "factory";
-        final Mono<ConnectionFactory> factoryM =
-                Mono.fromCallable(() -> {
-                                    log.info("Creating factory from callable");
-                                    return connectionFactory.apply(url);
-                                }
-                        ).
-                        doOnNext(factory -> log.info("Next {} {}", factoryName, factory)).
-                        doOnSuccess(factory -> log.info("Success {} {}", factoryName, factory)).
-                        doOnError(error -> log.error("Error {} {}", factoryName, error.getMessage())).
-                        name(factoryName).
-                        cache();
-
-        final String contextName = "context";
-        final Mono<JMSContext> contextM =
-                factoryM.flatMap(factory ->
-                                Mono.fromCallable(() -> {
-                                            log.info("Creating context from callable");
-                                            return factory.createContext(userName, password);
-                                        }
-                                )
-                        ).
-                        doOnNext(context -> log.info("Next {} {}", contextName, context)).
-                        doOnSuccess(context -> log.info("Success {} {}", contextName, context)).
-                        doOnError(error -> log.error("Error {}: {}", contextName, error.getMessage())).
-                        name(contextName);
-
-        final Many<Reconnect> reconnects = Sinks.many().multicast().onBackpressureBuffer();
-
-        final String retriedName = "retried";
-        final Mono<JMSContext> retriedM =
-                contextM.
-                        retryWhen(backoff(maxAttempts, minBackoff)).flatMap(context ->
-                                ops.ops.setExceptionListener(context,
-                                        exception ->
-                                                ReactiveOps.notifyOnFailure(
-                                                        ReactiveOps.nextReconnect(reconnects)
-                                                )
-                                ).<Mono<JMSContext>>map(
-                                        Mono::error
-                                ).orElse(
-                                        Mono.just(context)
-                                )
-                        ).
-                        doOnNext(context -> log.info("Next {} {}", retriedName, context)).
-                        doOnSuccess(context -> log.info("Success {} {}", retriedName, context)).
-                        doOnError(error -> log.error("Error {}: {}", retriedName, error.getMessage())).
-                        name(retriedName);
-
-        final String repeatedName = "repeated";
-        final Flux<JMSContext> repeatedF =
-                retriedM.repeatWhen(
-                                repeat -> {
-                                    final String reconnectName = "reconnect";
-                                    return reconnects.asFlux().
-                                            doOnNext(reconnect -> log.info("Next {}", reconnectName)).
-                                            doOnComplete(() -> log.info("Completed {}", reconnectName)).
-                                            doOnError(error -> log.error("Error {}: {}", reconnectName, error.getMessage())).
-                                            name(reconnectName);
-                                }
-                        ).
-                        doOnNext(context -> log.info("Next {} {}", repeatedName, context)).
-                        doOnComplete(() -> log.info("Completed {}", repeatedName)).
-                        doOnError(error -> log.error("Error {}: {}", repeatedName, error.getMessage())).
-                        name(repeatedName);
-
-        final String consumersName = "consumers";
-        final Flux<JMSConsumer> consumers =
-                repeatedF.flatMap(context ->
-                                ops.ops.createQueue(context, queueName).flatMap(queue ->
-                                        ops.ops.createConsumer(context, queue)
-                                ).apply(
-                                        errorCreatingQueueOrConsumer -> {
-                                            consume(
-                                                    ops.ops.closeContext(context),
-                                                    errorClosing ->
-                                                            log.warn("Closing context failed: {}", errorClosing.getMessage()),
-                                                    () ->
-                                                            log.info("Closing context succeeded")
-                                            );
-                                            return Mono.error(errorCreatingQueueOrConsumer);
-                                        },
-                                        Mono::just
-                                )
-                        ).
-                        doOnNext(consumer -> log.info("Next {} {}", consumersName, consumer)).
-                        doOnComplete(() -> log.info("Completed {}", consumersName)).
-                        doOnError(error -> log.error("Error {}: {}", consumersName, error.getMessage())).
-                        name(consumersName);
-
-        final String publishedName = "published";
-        return
-                consumers.flatMap(consumer -> {
-                            Many<T> convertedS = Sinks.many().unicast().onBackpressureBuffer();
-                            String convertedName = "converted";
-                            consumer.setMessageListener(message -> {
-                                        try
-                                        {
-                                            final T converted = converter.apply(message);
-                                            ReactiveOps.notifyOnFailure(
-                                                    ReactiveOps.tryNextEmission(convertedS, converted)
-                                            );
-                                        }
-                                        catch (JMSException e)
-                                        {
-                                            log.error("Error converting message {}", message, e);
-                                        }
-                                    }
-                            );
-                            return convertedS.asFlux().
-                                    doOnNext(item -> log.info("Next {} {}", convertedName, item)).
-                                    doOnComplete(() -> log.info("Completed {}", convertedName)).
-                                    doOnError(error -> log.error("Error {}: {}", convertedName, error.getMessage())).
-                                    name(convertedName);
-                        }).
-                        doOnNext(convertedItem -> log.info("Next {} {}", publishedName, convertedItem)).
-                        doOnComplete(() -> log.info("Completed {}", publishedName)).
-                        doOnError(error -> log.error("Error {}: {}", publishedName, error.getMessage())).
-                        name(publishedName);
+        final Mono<JMSContext> contextM = factoryContextAlt(connectionFactory, url, userName, password);
+        final Flux<JMSContext> reliable = retriedAndRepeated(contextM, maxAttempts, minBackoff);
+        return listenOn(reliable, queueName, converter);
     }
 
-    public <T> Flux<T> asyncMessagesFunctionally(
-            ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
-            String url,
-            String userName,
-            String password,
-            String queueName,
-            ThrowingFunction<Message, T, JMSException> converter,
-            long maxAttempts,
-            Duration minBackoff
-    )
+    private Mono<JMSContext> factoryContext(ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory, String url, String userName, String password)
     {
         final Mono<ConnectionFactory> factoryM =
                 ops.ops.instantiateConnectionFactory2(connectionFactory, url).<Mono<ConnectionFactory>>apply(
@@ -208,42 +99,65 @@ public class ReactivePublishers
                         ).doOnEach(onEach("factory")).name("factory").
                         cache();
 
-        final Mono<JMSContext> contextM =
+        return
                 factoryM.flatMap(factory ->
                         ops.ops.createContext(factory, userName, password).apply(
                                 Mono::error,
                                 Mono::just
                         )
                 ).doOnEach(onEach("context")).name("context");
+    }
 
+    private static Mono<JMSContext> factoryContextAlt(Function<String, ConnectionFactory> connectionFactory, String url, String userName, String password)
+    {
+        return
+                Mono.fromCallable(() -> {
+                                    log.info("Creating factory");
+                                    return connectionFactory.apply(url);
+                                }
+                        ).doOnEach(onEach("factory")).name("factory").
+                        cache(
+                        ).flatMap(factory ->
+                                Mono.fromCallable(() -> {
+                                            log.info("Creating context");
+                                            return factory.createContext(userName, password);
+                                        }
+                                )
+                        ).doOnEach(onEach("context")).name("context");
+    }
+
+    private Flux<JMSContext> retriedAndRepeated(Mono<JMSContext> contextM, long maxAttempts, Duration minBackoff)
+    {
         final Many<Reconnect> reconnects = Sinks.many().multicast().onBackpressureBuffer();
-
         final Mono<JMSContext> retriedM =
                 contextM.
                         retryWhen(backoff(maxAttempts, minBackoff)).flatMap(context ->
                                 ops.ops.setExceptionListener(context,
                                         exception ->
-                                                ReactiveOps.notifyOnFailure(
-                                                        ReactiveOps.nextReconnect(reconnects)
+                                                reportFailure(
+                                                        nextReconnect(reconnects)
                                                 )
                                 ).<Mono<JMSContext>>map(
                                         Mono::error
                                 ).orElse(
                                         Mono.just(context)
                                 )
-                        ).
-                        doOnEach(onEach("retried")).
-                        name("retried");
+                        ).doOnEach(onEach("retried")).name("retried");
 
-        final Flux<JMSContext> repeatedF =
+        return
                 retriedM.repeatWhen(
-                        repeat ->
-                                reconnects.asFlux().
-                                        doOnEach(onEach("reconnect")).name("reconnect")
+                        repeat -> {
+                            final String reconnectName = "reconnect";
+                            return reconnects.asFlux().
+                                    doOnEach(onEach(reconnectName)).name(reconnectName);
+                        }
                 ).doOnEach(onEach("repeated")).name("repeated");
+    }
 
-        final Flux<JMSConsumer> consumersF =
-                repeatedF.flatMap(context ->
+    private <T> Flux<T> listenOn(Flux<JMSContext> contextM, String queueName, ThrowingFunction<Message, T, JMSException> converter)
+    {
+        final Flux<JMSConsumer> consumers =
+                contextM.flatMap(context ->
                         ops.ops.createQueue(context, queueName).flatMap(queue ->
                                 ops.ops.createConsumer(context, queue)
                         ).apply(
@@ -262,26 +176,25 @@ public class ReactivePublishers
                 ).doOnEach(onEach("consumers")).name("consumers");
 
         return
-                consumersF.flatMap(consumer -> {
-                                    Many<T> convertedS = Sinks.many().unicast().onBackpressureBuffer();
-                                    consumer.setMessageListener(message -> {
-                                                try
-                                                {
-                                                    final T converted = converter.apply(message);
-                                                    ReactiveOps.notifyOnFailure(
-                                                            ReactiveOps.tryNextEmission(convertedS, converted)
-                                                    );
-                                                }
-                                                catch (JMSException e)
-                                                {
-                                                    log.error("Error converting message {}", message, e);
-                                                }
-                                            }
-                                    );
-                                    return convertedS.asFlux().
-                                            doOnEach(onEach("converted")).name("converted");
-                                }
-                        ).
-                        doOnEach(onEach("published")).name("published");
+                consumers.flatMap(consumer -> {
+                            Many<T> convertedS = Sinks.many().unicast().onBackpressureBuffer();
+                            consumer.setMessageListener(message -> {
+                                        try
+                                        {
+                                            final T converted = converter.apply(message);
+                                            reportFailure(
+                                                    tryNextEmission(convertedS, converted)
+                                            );
+                                        }
+                                        catch (JMSException e)
+                                        {
+                                            log.error("Error converting message {}", message, e);
+                                        }
+                                    }
+                            );
+                            return convertedS.asFlux().
+                                    doOnEach(onEach("converted")).name("converted");
+                        }
+                ).doOnEach(onEach("published")).name("published");
     }
 }

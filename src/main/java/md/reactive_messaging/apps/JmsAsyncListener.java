@@ -12,7 +12,6 @@ import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import java.time.Duration;
-import java.util.function.Function;
 
 import static md.reactive_messaging.reactive.GenericSubscribers.defaultSubscriber;
 
@@ -46,7 +45,7 @@ public final class JmsAsyncListener<T> implements Runnable
     {
         log.info("Start");
         final Flux<T> publisher =
-                publishers.asyncMessagesFunctionally(
+                publishers.asyncMessages(
                         connectionFactory, url,
                         userName, password,
                         queueName, converter,

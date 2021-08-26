@@ -20,7 +20,6 @@ import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import java.time.Duration;
-import java.util.function.Function;
 
 import static java.lang.String.format;
 import static java.time.Duration.between;
@@ -103,7 +102,9 @@ public class ReactiveMessagingApplication
                                                 format("RECEIVED %s (after %s)",
                                                         message.getBody(String.class),
                                                         between(
-                                                                ofEpochMilli(message.getJMSDeliveryTime()),
+                                                                ofEpochMilli(
+                                                                        message.getJMSDeliveryTime()
+                                                                ),
                                                                 now()
                                                         )
                                                 )

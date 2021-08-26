@@ -164,7 +164,7 @@ public class ReactiveOps
         return right(emitted).filter(result -> result == OK);
     }
 
-    public static void notifyOnFailure(Either<EmitResult, EmitResult> result)
+    public static void reportFailure(Either<EmitResult, EmitResult> result)
     {
         result.consume(
                 failure ->
