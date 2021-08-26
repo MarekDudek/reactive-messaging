@@ -9,4 +9,5 @@ public enum Profiles
     public static final String JMS_ASYNC_LISTENER = "jms-async-listener";
 
     public static final String TIBCO = "tibco";
+    public static final String IBM_MQ = "ibm-mq";
 }

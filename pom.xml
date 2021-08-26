@@ -46,6 +46,7 @@
             <artifactId>javax.jms-api</artifactId>
             <version>2.0.1</version>
         </dependency>
+        <!-- Tibco/EMS -->
         <dependency>
             <groupId>com.tibco</groupId>
             <artifactId>tibjms</artifactId>
@@ -60,6 +61,12 @@
             <groupId>com.tibco</groupId>
             <artifactId>tibrvjms</artifactId>
             <version>${tibco.version}</version>
+        </dependency>
+        <!-- IBM MQ -->
+        <dependency>
+            <groupId>com.ibm.mq</groupId>
+            <artifactId>com.ibm.mq.allclient</artifactId>
+            <version>9.2.3.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.kafka</groupId>

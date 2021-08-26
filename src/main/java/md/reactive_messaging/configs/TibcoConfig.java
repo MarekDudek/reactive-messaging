@@ -24,28 +24,28 @@ public class TibcoConfig
 
     @Qualifier("url")
     @Bean
-    String tibcoUrl(@Value("${tibco.url}") String url)
+    String url(@Value("${tibco.url}") String url)
     {
         return url;
     }
 
     @Qualifier("user-name")
     @Bean
-    String tibcoUserName(@Value("${tibco.user-name}") String userName)
+    String userName(@Value("${tibco.user-name}") String userName)
     {
         return userName;
     }
 
     @Qualifier("password")
     @Bean
-    String tibcoPassword(@Value("${tibco.password}") String password)
+    String password(@Value("${tibco.password}") String password)
     {
         return password;
     }
 
     @Qualifier("queue-name")
     @Bean
-    String tibcoQueueName(@Value("${tibco.queue-name}") String queueName)
+    String queueName(@Value("${tibco.queue-name}") String queueName)
     {
         return queueName;
     }
