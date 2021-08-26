@@ -31,7 +31,11 @@ public class ReactiveOps
     public final JmsSimplifiedApiOps ops;
 
 
-    public Mono<ConnectionFactory> factory(Function<String, ConnectionFactory> constructor, String url)
+    public Mono<ConnectionFactory> factory
+            (
+                    Function<String, ConnectionFactory> constructor,
+                    String url
+            )
     {
         return Mono.fromCallable(() ->
                 ops.instantiateConnectionFactory(constructor, url).apply(
@@ -44,7 +48,11 @@ public class ReactiveOps
         );
     }
 
-    public Mono<ConnectionFactory> factory(ThrowingFunction<String, ConnectionFactory, JMSException> constructor, String url)
+    public Mono<ConnectionFactory> factory
+            (
+                    ThrowingFunction<String, ConnectionFactory, JMSException> constructor,
+                    String url
+            )
     {
         return Mono.fromCallable(() ->
                 ops.instantiateConnectionFactory2(constructor, url).apply(
@@ -57,7 +65,12 @@ public class ReactiveOps
         );
     }
 
-    public Mono<JMSContext> context(ConnectionFactory factory, String userName, String password)
+    public Mono<JMSContext> context
+            (
+                    ConnectionFactory factory,
+                    String userName,
+                    String password
+            )
     {
         return Mono.fromCallable(() ->
                 ops.createContext(factory, userName, password).apply(
@@ -70,7 +83,11 @@ public class ReactiveOps
         );
     }
 
-    public JMSContext setExceptionListener(JMSContext context, Many<Reconnect> reconnect)
+    public JMSContext setExceptionListener
+            (
+                    JMSContext context,
+                    Many<Reconnect> reconnect
+            )
     {
         ops.setExceptionListener(context,
                 errorInContext -> {
@@ -85,7 +102,12 @@ public class ReactiveOps
         return context;
     }
 
-    public Mono<JMSConsumer> createQueueConsumer(JMSContext context, String queueName, Many<Reconnect> reconnect)
+    public Mono<JMSConsumer> createQueueConsumer
+            (
+                    JMSContext context,
+                    String queueName,
+                    Many<Reconnect> reconnect
+            )
     {
         return ops.createQueue(context, queueName).flatMap(queue ->
                 ops.createConsumer(context, queue)
@@ -99,7 +121,12 @@ public class ReactiveOps
         );
     }
 
-    public <T> Flux<T> receiveMessageBodies(JMSConsumer consumer, Class<T> klass, Many<Reconnect> reconnect)
+    public <T> Flux<T> receiveMessageBodies
+            (
+                    JMSConsumer consumer,
+                    Class<T> klass,
+                    Many<Reconnect> reconnect
+            )
     {
         return Flux.generate(sink ->
                 ops.receiveBody(consumer, klass).consume(
@@ -110,20 +137,6 @@ public class ReactiveOps
                         },
                         sink::next
                 )
-        );
-    }
-
-    public void setMessageListener(JMSConsumer consumer, Many<Reconnect> reconnect, Many<Message> messages)
-    {
-        ops.setMessageListener(consumer,
-                message -> {
-                    log.trace("Received {}", message);
-                    messages.tryEmitNext(message);
-                }
-        ).ifPresent(settingListenerError -> {
-                    log.error("Setting message listener on consumer {} failed", consumer, settingListenerError);
-                    reconnect.tryEmitNext(RECONNECT);
-                }
         );
     }
 
@@ -152,12 +165,21 @@ public class ReactiveOps
         };
     }
 
-    public static void nextReconnect(Many<Reconnect> reconnect, Consumer<Either<EmitResult, EmitResult>> continueC)
+    public static void nextReconnect
+            (
+                    Many<Reconnect> reconnect,
+                    Consumer<Either<EmitResult, EmitResult>> continueC
+            )
     {
         tryNextEmission(reconnect, RECONNECT, continueC);
     }
 
-    public static <T> void tryNextEmission(Many<T> sink, T decoded, Consumer<Either<EmitResult, EmitResult>> continueC)
+    public static <T> void tryNextEmission
+            (
+                    Many<T> sink,
+                    T decoded,
+                    Consumer<Either<EmitResult, EmitResult>> continueC
+            )
     {
         log.info("Emitting {}", decoded);
         final EmitResult emitted = sink.tryEmitNext(decoded);
