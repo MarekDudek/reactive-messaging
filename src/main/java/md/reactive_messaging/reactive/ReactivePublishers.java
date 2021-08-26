@@ -715,15 +715,15 @@ public class ReactivePublishers
         return convertedItems;
     }
 
-    private static Either<EmitResult, EmitResult> nextReconnect(Many<Reconnect> reconnectS)
+    private static Either<EmitResult, EmitResult> nextReconnect(Many<Reconnect> reconnect)
     {
-        return tryNextEmission(reconnectS, RECONNECT);
+        return tryNextEmission(reconnect, RECONNECT);
     }
 
     private static <T> Either<EmitResult, EmitResult> tryNextEmission(Many<T> sink, T decoded)
     {
         final EmitResult emitted = sink.tryEmitNext(decoded);
-        log.info("Emitted {}", decoded);
+        log.info("Emitting {}", decoded);
         return right(emitted).filter(result -> result == OK);
     }
 
