@@ -6,7 +6,6 @@ import md.reactive_messaging.apps.JmsSyncReceiver;
 import md.reactive_messaging.apps.JmsSyncSender;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
-import md.reactive_messaging.jms.JmsSimplifiedApiOps;
 import md.reactive_messaging.reactive.ReactivePublishers;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
@@ -80,7 +79,6 @@ public class ReactiveMessagingApplication
             (
                     @Qualifier("app-runner") TaskExecutor taskExecutor,
                     ReactivePublishers publishers,
-                    JmsSimplifiedApiOps jmsOps,
                     ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
                     @Qualifier("url") String url,
                     @Qualifier("user-name") String userName,
@@ -94,7 +92,7 @@ public class ReactiveMessagingApplication
                 taskExecutor.execute(() ->
                         RETHROWING_HANDLER.handle(
                                 JmsAsyncListener.<String>builder().
-                                        publishers(publishers).jmsOps(jmsOps).
+                                        publishers(publishers).
                                         connectionFactory(connectionFactory).url(url).
                                         userName(userName).password(password).
                                         queueName(queueName).
