@@ -12,7 +12,6 @@ import reactor.core.publisher.Sinks.Many;
 
 import javax.jms.*;
 import java.time.Duration;
-import java.util.function.Function;
 
 import static md.reactive_messaging.functional.Functional.consume;
 import static md.reactive_messaging.reactive.ReactiveUtils.*;
@@ -36,7 +35,7 @@ public class ReactivePublishers
     {
         final Mono<JMSContext> contextM = factoryAndContext(connectionFactory, url, userName, password);
         final Flux<JMSContext> reliableF = retriedAndRepeated(contextM, maxAttempts, minBackoff);
-        final Flux<JMSConsumer> consumerF = createQueueAndConsumer(reliableF, queueName);
+        final Flux<JMSConsumer> consumerF = queueAndConsumer(reliableF, queueName);
         return bodiesReceived(consumerF, klass);
     }
 
@@ -52,37 +51,8 @@ public class ReactivePublishers
     {
         final Mono<JMSContext> contextM = factoryAndContext(connectionFactory, url, userName, password);
         final Flux<JMSContext> reliableF = retriedAndRepeated(contextM, maxAttempts, minBackoff);
-        final Flux<JMSConsumer> consumerF = createQueueAndConsumer(reliableF, queueName);
-        return listenOn(consumerF, converter);
-    }
-
-    public <T> Flux<T> listenToMessagesAsynchronouslyAlt
-            (
-                    Function<String, ConnectionFactory> connectionFactory, String url,
-                    String userName, String password, String queueName, ThrowingFunction<Message, T, JMSException> converter,
-                    long maxAttempts, Duration minBackoff
-            )
-    {
-        final Mono<JMSContext> contextM = factoryContextAlt(connectionFactory, url, userName, password);
-        final Flux<JMSContext> reliableF = retriedAndRepeated(contextM, maxAttempts, minBackoff);
-        final Flux<JMSConsumer> consumerF = createQueueAndConsumer(reliableF, queueName);
-        return listenOn(consumerF, converter);
-    }
-
-    private <T> Flux<T> bodiesReceived
-            (
-                    Flux<JMSConsumer> consumerF,
-                    Class<T> klass
-            )
-    {
-        return consumerF.flatMap(consumer ->
-                Flux.<T>generate(sink ->
-                        ops.receiveBody(consumer, klass).consume(
-                                sink::error,
-                                sink::next
-                        )
-                )
-        ).doOnEach(onEach("bodies")).name("bodies");
+        final Flux<JMSConsumer> consumerF = queueAndConsumer(reliableF, queueName);
+        return heardInConsumer(consumerF, converter);
     }
 
     private Mono<JMSContext> factoryAndContext
@@ -92,43 +62,17 @@ public class ReactivePublishers
                     String userName, String password
             )
     {
-        final Mono<ConnectionFactory> factoryM =
-                ops.connectionFactoryForUrlChecked(connectionFactory, url).<Mono<ConnectionFactory>>apply(
-                                Mono::error,
-                                Mono::just
-                        ).doOnEach(onEach("factory")).name("factory").
-                        cache();
-
         return
-                factoryM.flatMap(factory ->
+                ops.connectionFactoryForUrlChecked(connectionFactory, url).<Mono<ConnectionFactory>>apply(
+                        Mono::error,
+                        Mono::just
+                ).doOnEach(onEach("factory")).name("factory"
+                ).cache().flatMap(factory ->
                         ops.createContext(factory, userName, password).apply(
                                 Mono::error,
                                 Mono::just
                         )
                 ).doOnEach(onEach("context")).name("context");
-    }
-
-    private static Mono<JMSContext> factoryContextAlt
-            (
-                    Function<String, ConnectionFactory> connectionFactory,
-                    String url,
-                    String userName, String password
-            )
-    {
-        return
-                Mono.fromCallable(() -> {
-                                    log.info("Creating factory");
-                                    return connectionFactory.apply(url);
-                                }
-                        ).doOnEach(onEach("factory")).name("factory").
-                        cache(
-                        ).flatMap(factory ->
-                                Mono.fromCallable(() -> {
-                                            log.info("Creating context");
-                                            return factory.createContext(userName, password);
-                                        }
-                                )
-                        ).doOnEach(onEach("context")).name("context");
     }
 
     private Flux<JMSContext> retriedAndRepeated
@@ -138,7 +82,7 @@ public class ReactivePublishers
             )
     {
         final Many<Reconnect> reconnects = Sinks.many().multicast().onBackpressureBuffer();
-        final Mono<JMSContext> retriedM =
+        return
                 contextM.
                         retryWhen(backoff(maxAttempts, minBackoff)).flatMap(context ->
                                 ops.setExceptionListener(context,
@@ -149,17 +93,15 @@ public class ReactivePublishers
                                 ).orElse(
                                         Mono.just(context)
                                 )
-                        ).doOnEach(onEach("retried")).name("retried");
-
-        return
-                retriedM.repeatWhen(
-                        repeat ->
-                                reconnects.asFlux().
-                                        doOnEach(onEach("reconnect")).name("reconnect")
-                ).doOnEach(onEach("repeated")).name("repeated");
+                        ).doOnEach(onEach("retried")).name("retried"
+                        ).repeatWhen(
+                                repeat ->
+                                        reconnects.asFlux().
+                                                doOnEach(onEach("reconnect")).name("reconnect")
+                        ).doOnEach(onEach("repeated")).name("repeated");
     }
 
-    private Flux<JMSConsumer> createQueueAndConsumer
+    private Flux<JMSConsumer> queueAndConsumer
             (
                     Flux<JMSContext> contextM,
                     String queueName
@@ -185,7 +127,24 @@ public class ReactivePublishers
                 ).doOnEach(onEach("consumers")).name("consumers");
     }
 
-    private <T> Flux<T> listenOn
+    private <T> Flux<T> bodiesReceived
+            (
+                    Flux<JMSConsumer> consumerF,
+                    Class<T> klass
+            )
+    {
+        return
+                consumerF.flatMap(consumer ->
+                        Flux.<T>generate(sink ->
+                                ops.receiveBody(consumer, klass).consume(
+                                        sink::error,
+                                        sink::next
+                                )
+                        )
+                ).doOnEach(onEach("bodies")).name("bodies");
+    }
+
+    private <T> Flux<T> heardInConsumer
             (
                     Flux<JMSConsumer> consumerF,
                     ThrowingFunction<Message, T, JMSException> converter

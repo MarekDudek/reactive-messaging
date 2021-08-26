@@ -5,9 +5,9 @@ import org.junit.jupiter.api.Test;
 
 import java.util.function.Predicate;
 
+import static java.util.Optional.empty;
 import static java.util.Optional.of;
-import static md.reactive_messaging.functional.Either.left;
-import static md.reactive_messaging.functional.Either.right;
+import static md.reactive_messaging.functional.Either.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
@@ -102,7 +102,14 @@ final class EitherTest
     @Test
     void to_optional()
     {
-        assertThat(RIGHT.toOptional()).isNotPresent();
-        assertThat(LEFT.toOptional()).isEqualTo(of("error"));
+        assertThat(RIGHT.toOptional()).isEqualTo(of(23));
+        assertThat(LEFT.toOptional()).isNotPresent();
+    }
+
+    @Test
+    void from_optional()
+    {
+        assertThat(fromOptional(empty(), 5)).isEqualTo(left(5));
+        assertThat(fromOptional(of(0), 5)).isEqualTo(right(0));
     }
 }

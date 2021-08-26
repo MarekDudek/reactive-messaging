@@ -39,13 +39,13 @@ public class ReactiveMessagingApplication
     }
 
     @Bean
-    @Qualifier("app")
-    TaskExecutor taskExecutor()
+    @Qualifier("app-runner")
+    TaskExecutor appRunner()
     {
         final ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
         executor.setCorePoolSize(1);
         executor.setMaxPoolSize(4);
-        executor.setThreadNamePrefix("app-task-executor-");
+        executor.setThreadNamePrefix("app-runner-");
         return executor;
     }
 
@@ -53,7 +53,7 @@ public class ReactiveMessagingApplication
     @Bean
     ApplicationRunner jmsSyncSender
             (
-                    @Qualifier("app") TaskExecutor taskExecutor,
+                    @Qualifier("app-runner") TaskExecutor taskExecutor,
                     JmsSimplifiedApiManager manager,
                     ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
                     @Qualifier("url") String url,
@@ -78,7 +78,7 @@ public class ReactiveMessagingApplication
     @Bean
     ApplicationRunner jmsAsyncListener
             (
-                    @Qualifier("app") TaskExecutor taskExecutor,
+                    @Qualifier("app-runner") TaskExecutor taskExecutor,
                     ReactivePublishers publishers,
                     JmsSimplifiedApiOps jmsOps,
                     ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
@@ -120,7 +120,7 @@ public class ReactiveMessagingApplication
     @Bean
     ApplicationRunner jmsSyncReceiver
             (
-                    @Qualifier("app") TaskExecutor taskExecutor,
+                    @Qualifier("app-runner") TaskExecutor taskExecutor,
                     ReactivePublishers publishers,
                     ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
                     @Qualifier("url") String url,

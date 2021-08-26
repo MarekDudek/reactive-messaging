@@ -2,6 +2,7 @@ package md.reactive_messaging.functional;
 
 import java.util.Optional;
 import java.util.function.Consumer;
+import java.util.function.Function;
 
 public enum Functional
 {
@@ -15,6 +16,17 @@ public enum Functional
     public static <T> T error()
     {
         throw new RuntimeException();
+    }
+
+    public static <T, R> Function<T, R> constant(R value)
+    {
+        return ignored -> value;
+    }
+
+    public static <T> Consumer<T> ignore()
+    {
+        return ignored -> {
+        };
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")

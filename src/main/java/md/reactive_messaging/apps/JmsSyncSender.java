@@ -44,11 +44,11 @@ public final class JmsSyncSender implements Runnable
             try
             {
                 log.info("Sending text message");
-                manager.sendTextMessages(
+                manager.sendTextMessage(
                         connectionFactory, url,
                         userName, password,
-                        queueName,
-                        rangeClosed(1, 10).mapToObj(i -> "text-" + i)
+                        queueName, "text"
+                        //rangeClosed(1, 10).mapToObj(i -> "text-" + i)
                 );
                 sleep(sleep.toMillis());
             }

@@ -8,7 +8,7 @@ import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Predicate;
 
-import static java.util.Optional.empty;
+import static md.reactive_messaging.functional.Functional.constant;
 
 public interface Either<L, R>
 {
@@ -49,33 +49,33 @@ public interface Either<L, R>
 
     default boolean isLeft()
     {
-        return apply(l -> true, r -> false);
+        return apply(constant(true), constant(false));
     }
 
     default boolean isRight()
     {
-        return apply(l -> false, r -> true);
+        return apply(constant(false), constant(true));
     }
 
     default L leftOr(final L value)
     {
-        return apply(left -> left, right -> value);
+        return apply(left -> left, constant(value));
     }
 
     default R rightOr(final R value)
     {
-        return apply(left -> value, right -> right);
+        return apply(constant(value), right -> right);
     }
 
     default <T> Either<T, T> filter(final Predicate<T> predicate)
     {
         return apply(
-                left -> Either.left((T) left),
+                left -> left((T) left),
                 right -> {
                     final T cast = (T) right;
                     return predicate.test(cast)
-                            ? Either.right(cast)
-                            : Either.left(cast);
+                            ? right(cast)
+                            : left(cast);
                 }
         );
     }
@@ -83,7 +83,7 @@ public interface Either<L, R>
     default Either<L, R> filter(final Predicate<R> predicate, L value)
     {
         return apply(
-                left -> left(value),
+                constant(left(value)),
                 right ->
                         predicate.test(right)
                                 ? right(right)
@@ -113,14 +113,14 @@ public interface Either<L, R>
     }
 
     @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
-    static <L, R> Either<L, R> fromOptional(final Optional<L> optional, final R right)
+    static <L, R> Either<L, R> fromOptional(final Optional<R> optional, final L left)
     {
-        return optional.map(Either::<L, R>left).orElse(right(right));
+        return optional.<Either<L, R>>map(Either::right).orElse(left(left));
     }
 
-    default Optional<L> toOptional()
+    default Optional<R> toOptional()
     {
-        return apply(Optional::of, right -> empty());
+        return apply(constant(Optional.empty()), Optional::of);
     }
 }
 
