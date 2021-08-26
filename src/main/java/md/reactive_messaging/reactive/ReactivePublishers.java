@@ -28,12 +28,9 @@ public class ReactivePublishers
             (
                     ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
                     String url,
-                    String userName,
-                    String password,
-                    String queueName,
-                    Class<T> klass,
-                    long maxAttempts,
-                    Duration minBackoff
+                    String userName, String password,
+                    String queueName, Class<T> klass,
+                    long maxAttempts, Duration minBackoff
             )
     {
         final Many<Reconnect> reconnect = Sinks.many().unicast().onBackpressureBuffer();
@@ -60,12 +57,10 @@ public class ReactivePublishers
     public <T> Flux<T> asyncMessages(
             ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
             String url,
-            String userName,
-            String password,
+            String userName, String password,
             String queueName,
             ThrowingFunction<Message, T, JMSException> converter,
-            long maxAttempts,
-            Duration minBackoff
+            long maxAttempts, Duration minBackoff
     )
     {
         final Mono<JMSContext> contextM = factoryContext(connectionFactory, url, userName, password);
@@ -75,14 +70,9 @@ public class ReactivePublishers
 
     public <T> Flux<T> asyncMessagesAlt
             (
-                    Function<String, ConnectionFactory> connectionFactory,
-                    String url,
-                    String userName,
-                    String password,
-                    String queueName,
-                    ThrowingFunction<Message, T, JMSException> converter,
-                    long maxAttempts,
-                    Duration minBackoff
+                    Function<String, ConnectionFactory> connectionFactory, String url,
+                    String userName, String password, String queueName, ThrowingFunction<Message, T, JMSException> converter,
+                    long maxAttempts, Duration minBackoff
             )
     {
         final Mono<JMSContext> contextM = factoryContextAlt(connectionFactory, url, userName, password);
@@ -90,7 +80,12 @@ public class ReactivePublishers
         return listenOn(reliable, queueName, converter);
     }
 
-    private Mono<JMSContext> factoryContext(ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory, String url, String userName, String password)
+    private Mono<JMSContext> factoryContext
+            (
+                    ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
+                    String url,
+                    String userName, String password
+            )
     {
         final Mono<ConnectionFactory> factoryM =
                 ops.ops.instantiateConnectionFactory2(connectionFactory, url).<Mono<ConnectionFactory>>apply(
@@ -108,7 +103,12 @@ public class ReactivePublishers
                 ).doOnEach(onEach("context")).name("context");
     }
 
-    private static Mono<JMSContext> factoryContextAlt(Function<String, ConnectionFactory> connectionFactory, String url, String userName, String password)
+    private static Mono<JMSContext> factoryContextAlt
+            (
+                    Function<String, ConnectionFactory> connectionFactory,
+                    String url,
+                    String userName, String password
+            )
     {
         return
                 Mono.fromCallable(() -> {
@@ -126,7 +126,11 @@ public class ReactivePublishers
                         ).doOnEach(onEach("context")).name("context");
     }
 
-    private Flux<JMSContext> retriedAndRepeated(Mono<JMSContext> contextM, long maxAttempts, Duration minBackoff)
+    private Flux<JMSContext> retriedAndRepeated
+            (
+                    Mono<JMSContext> contextM,
+                    long maxAttempts, Duration minBackoff
+            )
     {
         final Many<Reconnect> reconnects = Sinks.many().multicast().onBackpressureBuffer();
         final Mono<JMSContext> retriedM =
@@ -150,7 +154,12 @@ public class ReactivePublishers
                 ).doOnEach(onEach("repeated")).name("repeated");
     }
 
-    private <T> Flux<T> listenOn(Flux<JMSContext> contextM, String queueName, ThrowingFunction<Message, T, JMSException> converter)
+    private <T> Flux<T> listenOn
+            (
+                    Flux<JMSContext> contextM,
+                    String queueName,
+                    ThrowingFunction<Message, T, JMSException> converter
+            )
     {
         final Flux<JMSConsumer> consumers =
                 contextM.flatMap(context ->
