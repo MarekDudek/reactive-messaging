@@ -4,6 +4,7 @@ import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.apps.JmsAsyncListener;
 import md.reactive_messaging.apps.JmsSyncReceiver;
 import md.reactive_messaging.apps.JmsSyncSender;
+import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 import md.reactive_messaging.jms.JmsSimplifiedApiOps;
 import md.reactive_messaging.reactive.ReactivePublishers;
@@ -17,6 +18,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import javax.jms.ConnectionFactory;
+import javax.jms.JMSException;
 import java.time.Duration;
 import java.util.function.Function;
 
@@ -54,7 +56,7 @@ public class ReactiveMessagingApplication
             (
                     @Qualifier("app") TaskExecutor taskExecutor,
                     JmsSimplifiedApiManager manager,
-                    Function<String, ConnectionFactory> connectionFactory,
+                    ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
                     @Qualifier("url") String url,
                     @Qualifier("user-name") String userName,
                     @Qualifier("password") String password,
@@ -80,7 +82,7 @@ public class ReactiveMessagingApplication
                     @Qualifier("app") TaskExecutor taskExecutor,
                     ReactivePublishers publishers,
                     JmsSimplifiedApiOps jmsOps,
-                    Function<String, ConnectionFactory> connectionFactory,
+                    ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
                     @Qualifier("url") String url,
                     @Qualifier("user-name") String userName,
                     @Qualifier("password") String password,
@@ -119,7 +121,7 @@ public class ReactiveMessagingApplication
             (
                     @Qualifier("app") TaskExecutor taskExecutor,
                     ReactivePublishers publishers,
-                    Function<String, ConnectionFactory> connectionFactory,
+                    ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
                     @Qualifier("url") String url,
                     @Qualifier("user-name") String userName,
                     @Qualifier("password") String password,

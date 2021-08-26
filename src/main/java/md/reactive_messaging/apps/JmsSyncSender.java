@@ -3,9 +3,11 @@ package md.reactive_messaging.apps;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 
 import javax.jms.ConnectionFactory;
+import javax.jms.JMSException;
 import java.time.Duration;
 import java.util.function.Function;
 
@@ -19,7 +21,7 @@ public final class JmsSyncSender implements Runnable
     @NonNull
     private final JmsSimplifiedApiManager manager;
     @NonNull
-    private final Function<String, ConnectionFactory> connectionFactory;
+    private final ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory;
     @NonNull
     private final String url;
     @NonNull

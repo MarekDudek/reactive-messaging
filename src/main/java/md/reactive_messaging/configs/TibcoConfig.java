@@ -1,6 +1,7 @@
 package md.reactive_messaging.configs;
 
 import com.tibco.tibjms.TibjmsConnectionFactory;
+import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -8,7 +9,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
 
 import javax.jms.ConnectionFactory;
-import java.util.function.Function;
+import javax.jms.JMSException;
 
 import static md.reactive_messaging.Profiles.TIBCO;
 
@@ -17,7 +18,7 @@ import static md.reactive_messaging.Profiles.TIBCO;
 public class TibcoConfig
 {
     @Bean
-    Function<String, ConnectionFactory> connectionFactory()
+    ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory()
     {
         return TibjmsConnectionFactory::new;
     }

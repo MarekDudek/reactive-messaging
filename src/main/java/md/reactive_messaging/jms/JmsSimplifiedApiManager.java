@@ -4,14 +4,17 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
+import md.reactive_messaging.functional.throwing.ThrowingFunction;
 
 import javax.jms.ConnectionFactory;
+import javax.jms.JMSException;
 import javax.jms.JMSRuntimeException;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.Stream;
 
 import static java.util.Optional.empty;
+import static java.util.function.Function.identity;
 import static md.reactive_messaging.functional.Either.fromOptional;
 
 @Slf4j
@@ -54,7 +57,7 @@ public final class JmsSimplifiedApiManager
 
     public Optional<JMSRuntimeException> sendTextMessages
             (
-                    @NonNull Function<String, ConnectionFactory> constructor,
+                    @NonNull ThrowingFunction<String, ConnectionFactory, JMSException> constructor,
                     @NonNull String url,
                     @NonNull String userName,
                     @NonNull String password,
@@ -63,7 +66,11 @@ public final class JmsSimplifiedApiManager
             )
     {
         return
-                ops.instantiateConnectionFactory(constructor, url).flatMap(factory ->
+                ops.instantiateConnectionFactory2(constructor, url).biMap(
+                        jmsException ->
+                                new JMSRuntimeException(jmsException.getMessage()),
+                        identity()
+                ).flatMap(factory ->
                         ops.createContext(factory, userName, password).flatMap(context -> {
                                     Either<JMSRuntimeException, Object> sent =
                                             ops.createQueue(context, queueName).flatMap(queue ->

@@ -21,6 +21,11 @@ public class JmsSimplifiedApiOps
         return function(constructor, url, "create-connection-factory", log::info, ERROR);
     }
 
+    public Either<JMSException, ConnectionFactory> instantiateConnectionFactory2(ThrowingFunction<String, ConnectionFactory, JMSException> constructor, String url)
+    {
+        return throwingFunction(constructor, url, "create-connection-factory", log::info, ERROR);
+    }
+
     public Either<JMSRuntimeException, JMSContext> createContext(ConnectionFactory factory, String userName, String password)
     {
         return biFunction(factory::createContext, userName, password, "create-context", log::info, ERROR);

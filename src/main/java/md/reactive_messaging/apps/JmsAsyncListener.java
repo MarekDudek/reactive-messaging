@@ -25,7 +25,7 @@ public final class JmsAsyncListener<T> implements Runnable
     @NonNull
     private final JmsSimplifiedApiOps jmsOps;
     @NonNull
-    private final Function<String, ConnectionFactory> connectionFactory;
+    private final ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory;
     @NonNull
     private final String url;
     @NonNull

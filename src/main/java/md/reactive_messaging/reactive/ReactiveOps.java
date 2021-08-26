@@ -4,6 +4,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
+import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.JmsSimplifiedApiOps;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -11,10 +12,8 @@ import reactor.core.publisher.Signal;
 import reactor.core.publisher.Sinks.EmitResult;
 import reactor.core.publisher.Sinks.Many;
 
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSConsumer;
-import javax.jms.JMSContext;
-import javax.jms.Message;
+import javax.jms.*;
+import java.lang.IllegalStateException;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -39,6 +38,19 @@ public class ReactiveOps
                         error -> {
                             log.error("Instantiating connection factory failed", error);
                             throw error;
+                        },
+                        factory -> factory
+                )
+        );
+    }
+
+    public Mono<ConnectionFactory> factory(ThrowingFunction<String, ConnectionFactory, JMSException> constructor, String url)
+    {
+        return Mono.fromCallable(() ->
+                ops.instantiateConnectionFactory2(constructor, url).apply(
+                        error -> {
+                            log.error("Instantiating connection factory failed", error);
+                            throw new JMSRuntimeException(error.getMessage());
                         },
                         factory -> factory
                 )

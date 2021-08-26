@@ -26,7 +26,7 @@ public class ReactivePublishers
 
     public <T> Flux<T> syncMessages
             (
-                    Function<String, ConnectionFactory> connectionFactory,
+                    ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
                     String url,
                     String userName,
                     String password,
@@ -191,7 +191,7 @@ public class ReactivePublishers
     }
 
     public <T> Flux<T> asyncMessagesFunctionally(
-            Function<String, ConnectionFactory> connectionFactory,
+            ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
             String url,
             String userName,
             String password,
@@ -202,7 +202,7 @@ public class ReactivePublishers
     )
     {
         final Mono<ConnectionFactory> factoryM =
-                ops.ops.instantiateConnectionFactory(connectionFactory, url).<Mono<ConnectionFactory>>apply(
+                ops.ops.instantiateConnectionFactory2(connectionFactory, url).<Mono<ConnectionFactory>>apply(
                                 Mono::error,
                                 Mono::just
                         ).doOnEach(onEach("factory")).name("factory").
