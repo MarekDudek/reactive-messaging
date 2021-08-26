@@ -4,7 +4,6 @@ import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.apps.JmsAsyncListener;
 import md.reactive_messaging.apps.JmsSyncReceiver;
 import md.reactive_messaging.apps.JmsSyncSender;
-import md.reactive_messaging.apps.WellBehavedReconnector;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 import md.reactive_messaging.jms.JmsSimplifiedApiOps;
 import md.reactive_messaging.reactive.ReactivePublishers;
@@ -98,8 +97,14 @@ public class ReactiveMessagingApplication
                                         connectionFactory(connectionFactory).url(url).
                                         userName(userName).password(password).
                                         queueName(queueName).
-                                        converter(message1 ->
-                                                message1.getBody(String.class)
+                                        converter(message ->
+                                                format("RECEIVED %s (after %s)",
+                                                        message.getBody(String.class),
+                                                        between(
+                                                                ofEpochMilli(message.getJMSDeliveryTime()),
+                                                                now()
+                                                        )
+                                                )
                                         ).
                                         maxAttempts(maxAttempts).minBackoff(minBackoff).
                                         build(),
@@ -134,43 +139,6 @@ public class ReactiveMessagingApplication
                                         maxAttempts(maxAttempts).minBackoff(minBackoff).
                                         build(),
                                 JmsSyncReceiver.class.getName()
-                        )
-                );
-    }
-
-    @Profile(WELL_BEHAVED)
-    @Bean
-    ApplicationRunner wellBehavedReconnector
-            (
-                    @Qualifier("app") TaskExecutor taskExecutor,
-                    ReactivePublishers publishers,
-                    JmsSimplifiedApiOps jmsOps,
-                    Function<String, ConnectionFactory> connectionFactory,
-                    @Qualifier("url") String url,
-                    @Qualifier("user-name") String userName,
-                    @Qualifier("password") String password,
-                    @Qualifier("queue-name") String queueName,
-                    @Qualifier("max-attempts") long maxAttempts,
-                    @Qualifier("min-backoff") Duration minBackoff
-            )
-    {
-        return args ->
-                taskExecutor.execute(() ->
-                        RETHROWING_HANDLER.handle(
-                                WellBehavedReconnector.builder().
-                                        publishers(publishers).jmsOps(jmsOps).
-                                        connectionFactory(connectionFactory).url(url).
-                                        userName(userName).password(password).
-                                        queueName(queueName).
-                                        converter(message ->
-                                                format("Received after %s delivery",
-                                                        between(ofEpochMilli(message.getJMSDeliveryTime()), now())
-                                                ).toUpperCase()
-
-                                        ).
-                                        maxAttempts(maxAttempts).minBackoff(minBackoff).
-                                        build(),
-                                WellBehavedReconnector.class.getName()
                         )
                 );
     }

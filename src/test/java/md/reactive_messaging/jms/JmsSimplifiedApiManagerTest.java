@@ -2,6 +2,7 @@ package md.reactive_messaging.jms;
 
 import com.tibco.tibjms.TibjmsConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import javax.jms.JMSRuntimeException;
@@ -13,6 +14,7 @@ import static md.reactive_messaging.TestTibcoEmsConfig.*;
 import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
+@Disabled
 final class JmsSimplifiedApiManagerTest
 {
     private static final JmsSimplifiedApiOps OPS = new JmsSimplifiedApiOps();

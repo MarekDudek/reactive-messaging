@@ -6,12 +6,15 @@ import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.JmsSimplifiedApiOps;
 import md.reactive_messaging.reactive.ReactivePublishers;
+import reactor.core.publisher.Flux;
 
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import javax.jms.Message;
 import java.time.Duration;
 import java.util.function.Function;
+
+import static md.reactive_messaging.reactive.GenericSubscribers.defaultSubscriber;
 
 @Builder
 @Slf4j
@@ -42,19 +45,14 @@ public final class JmsAsyncListener<T> implements Runnable
     public void run()
     {
         log.info("Start");
-        publishers.asyncMessages(
-                connectionFactory, url,
-                userName, password,
-                queueName, converter,
-                maxAttempts, minBackoff
-        ).subscribe(
-                message ->
-                        log.info("{}", message),
-                error ->
-                        log.error("Error", error),
-                () ->
-                        log.error("Completed")
-        );
+        final Flux<T> publisher =
+                publishers.asyncMessagesFunctionally(
+                        connectionFactory, url,
+                        userName, password,
+                        queueName, converter,
+                        maxAttempts, minBackoff
+                );
+        defaultSubscriber(publisher);
         log.info("Finish");
     }
 }

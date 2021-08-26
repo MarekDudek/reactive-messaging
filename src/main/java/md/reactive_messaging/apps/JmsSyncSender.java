@@ -10,6 +10,7 @@ import java.time.Duration;
 import java.util.function.Function;
 
 import static java.lang.Thread.sleep;
+import static java.util.stream.IntStream.rangeClosed;
 
 @Builder
 @Slf4j
@@ -41,10 +42,11 @@ public final class JmsSyncSender implements Runnable
             try
             {
                 log.info("Sending text message");
-                manager.sendTextMessage(
+                manager.sendTextMessages(
                         connectionFactory, url,
                         userName, password,
-                        queueName, text
+                        queueName,
+                        rangeClosed(1, 10).mapToObj(i -> "text-" + i)
                 );
                 sleep(sleep.toMillis());
             }

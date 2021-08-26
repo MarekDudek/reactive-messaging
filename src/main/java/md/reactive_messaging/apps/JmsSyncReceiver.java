@@ -10,6 +10,8 @@ import javax.jms.ConnectionFactory;
 import java.time.Duration;
 import java.util.function.Function;
 
+import static md.reactive_messaging.reactive.GenericSubscribers.defaultSubscriber;
+
 @Builder
 @Slf4j
 public final class JmsSyncReceiver implements Runnable
@@ -35,21 +37,14 @@ public final class JmsSyncReceiver implements Runnable
     public void run()
     {
         log.info("Start");
-        final Flux<String> messageBodies =
+        final Flux<String> publisher =
                 publishers.syncMessages(connectionFactory, url,
                         userName, password,
                         queueName,
                         String.class,
                         maxAttempts, minBackoff
                 );
-        messageBodies.subscribe(
-                body ->
-                        log.info("Body {}", body),
-                error ->
-                        log.error("Error", error),
-                () ->
-                        log.error("Completed")
-        );
+        defaultSubscriber(publisher);
         log.info("Finish");
     }
 }

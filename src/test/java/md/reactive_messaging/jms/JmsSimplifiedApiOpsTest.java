@@ -3,6 +3,7 @@ package md.reactive_messaging.jms;
 import com.tibco.tibjms.TibjmsConnectionFactory;
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import org.junit.jupiter.api.Order;
 import org.junit.jupiter.api.Test;
@@ -21,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @Slf4j
 @TestMethodOrder(OrderAnnotation.class)
+@Disabled
 final class JmsSimplifiedApiOpsTest
 {
     private static final JmsSimplifiedApiOps OPS = new JmsSimplifiedApiOps();
