@@ -76,7 +76,7 @@ final class ReactivePublishersTest
     void wellBehavedWorksCorrectlyOnBrokerDown() throws InterruptedException
     {
         final Flux<?> flux =
-                publishers.asyncMessages5(
+                publishers.asyncMessagesFromCallable(
                         TibjmsConnectionFactory::new, URL,
                         USER_NAME, PASSWORD,
                         QUEUE_NAME, message -> "test message",
@@ -91,7 +91,7 @@ final class ReactivePublishersTest
     void wellBehavedWorksCorrectlyOnBrokerUp() throws InterruptedException
     {
         final Flux<?> flux =
-                publishers.asyncMessages5(
+                publishers.asyncMessagesFromCallable(
                         TibjmsConnectionFactory::new, URL,
                         USER_NAME, PASSWORD,
                         QUEUE_NAME, message -> "test message",
@@ -107,7 +107,7 @@ final class ReactivePublishersTest
     void wellBehavedWorksCorrectlyOnBrokerRestarting() throws InterruptedException
     {
         final Flux<?> flux =
-                publishers.asyncMessages5(
+                publishers.asyncMessagesFromCallable(
                         TibjmsConnectionFactory::new, URL,
                         USER_NAME, PASSWORD,
                         QUEUE_NAME, message -> "test message",
@@ -124,7 +124,7 @@ final class ReactivePublishersTest
     void wellBehavedInTheFree() throws InterruptedException
     {
         final Flux<?> flux =
-                publishers.asyncMessages5(
+                publishers.asyncMessagesFunctionally(
                         TibjmsConnectionFactory::new, URL,
                         USER_NAME, PASSWORD,
                         QUEUE_NAME, message -> message.getBody(String.class).toUpperCase(),

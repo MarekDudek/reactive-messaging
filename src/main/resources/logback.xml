@@ -11,17 +11,16 @@
             <pattern>%d{HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n</pattern>
         </encoder>
     </appender>
-    <root level="info">
+    <root level="trace">
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="FILE"/>
     </root>
-    <logger name="md.reactive_messaging.jms" level="info" additivity="false">
+    <logger name="md.reactive_messaging" level="trace" additivity="false">
         <appender-ref ref="STDOUT"/>
-    </logger>
-    <logger name="md.reactive_messaging.reactive" level="info" additivity="false">
-        <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
     </logger>
     <logger name="com.tibco" level="trace" additivity="false">
         <appender-ref ref="STDOUT"/>
+        <appender-ref ref="FILE"/>
     </logger>
 </configuration>

@@ -42,7 +42,7 @@ public final class WellBehavedReconnector implements Runnable
     public void run()
     {
         log.info("Start");
-        publishers.asyncMessages5(
+        publishers.asyncMessagesFunctionally(
                 connectionFactory, url,
                 userName, password,
                 queueName, converter,
