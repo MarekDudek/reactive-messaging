@@ -4,6 +4,7 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
+import md.reactive_messaging.jms.JmsSimplifiedApiOps;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
@@ -14,7 +15,7 @@ import java.time.Duration;
 import java.util.function.Function;
 
 import static md.reactive_messaging.functional.Functional.consume;
-import static md.reactive_messaging.reactive.ReactiveOps.*;
+import static md.reactive_messaging.reactive.ReactiveUtils.*;
 import static reactor.util.retry.Retry.backoff;
 
 @RequiredArgsConstructor
@@ -22,9 +23,9 @@ import static reactor.util.retry.Retry.backoff;
 public class ReactivePublishers
 {
     @NonNull
-    public final ReactiveOps ops;
+    public final JmsSimplifiedApiOps ops;
 
-    public <T> Flux<T> syncMessages
+    public <T> Flux<T> receiveMessagesSynchronously
             (
                     ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
                     String url,
@@ -33,42 +34,29 @@ public class ReactivePublishers
                     long maxAttempts, Duration minBackoff
             )
     {
-        final Many<Reconnect> reconnect = Sinks.many().unicast().onBackpressureBuffer();
-
-        final Mono<JMSConsumer> monitoredConsumer =
-                ops.factory(connectionFactory, url).flatMap(factory ->
-                        ops.context(factory, userName, password).map(context ->
-                                ops.setExceptionListener(context, reconnect)
-                        )
-                ).flatMap(context ->
-                        ops.createQueueConsumer(context, queueName, reconnect)
-                );
-
-        final Flux<T> single =
-                monitoredConsumer.flatMapMany(consumer ->
-                        ops.receiveMessageBodies(consumer, klass, reconnect)
-                );
-
-        return single.
-                retryWhen(backoff(maxAttempts, minBackoff)).
-                repeatWhen(repeat -> reconnect.asFlux());
+        final Mono<JMSContext> contextM = factoryAndContext(connectionFactory, url, userName, password);
+        final Flux<JMSContext> reliableF = retriedAndRepeated(contextM, maxAttempts, minBackoff);
+        final Flux<JMSConsumer> consumerF = createQueueAndConsumer(reliableF, queueName);
+        return bodiesReceived(consumerF, klass);
     }
 
-    public <T> Flux<T> asyncMessages(
-            ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
-            String url,
-            String userName, String password,
-            String queueName,
-            ThrowingFunction<Message, T, JMSException> converter,
-            long maxAttempts, Duration minBackoff
-    )
+    public <T> Flux<T> listenToMessagesAsynchronously
+            (
+                    ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
+                    String url,
+                    String userName, String password,
+                    String queueName,
+                    ThrowingFunction<Message, T, JMSException> converter,
+                    long maxAttempts, Duration minBackoff
+            )
     {
-        final Mono<JMSContext> contextM = factoryContext(connectionFactory, url, userName, password);
-        final Flux<JMSContext> reliable = retriedAndRepeated(contextM, maxAttempts, minBackoff);
-        return listenOn(reliable, queueName, converter);
+        final Mono<JMSContext> contextM = factoryAndContext(connectionFactory, url, userName, password);
+        final Flux<JMSContext> reliableF = retriedAndRepeated(contextM, maxAttempts, minBackoff);
+        final Flux<JMSConsumer> consumerF = createQueueAndConsumer(reliableF, queueName);
+        return listenOn(consumerF, converter);
     }
 
-    public <T> Flux<T> asyncMessagesAlt
+    public <T> Flux<T> listenToMessagesAsynchronouslyAlt
             (
                     Function<String, ConnectionFactory> connectionFactory, String url,
                     String userName, String password, String queueName, ThrowingFunction<Message, T, JMSException> converter,
@@ -76,11 +64,28 @@ public class ReactivePublishers
             )
     {
         final Mono<JMSContext> contextM = factoryContextAlt(connectionFactory, url, userName, password);
-        final Flux<JMSContext> reliable = retriedAndRepeated(contextM, maxAttempts, minBackoff);
-        return listenOn(reliable, queueName, converter);
+        final Flux<JMSContext> reliableF = retriedAndRepeated(contextM, maxAttempts, minBackoff);
+        final Flux<JMSConsumer> consumerF = createQueueAndConsumer(reliableF, queueName);
+        return listenOn(consumerF, converter);
     }
 
-    private Mono<JMSContext> factoryContext
+    private <T> Flux<T> bodiesReceived
+            (
+                    Flux<JMSConsumer> consumerF,
+                    Class<T> klass
+            )
+    {
+        return consumerF.flatMap(consumer ->
+                Flux.<T>generate(sink ->
+                        ops.receiveBody(consumer, klass).consume(
+                                sink::error,
+                                sink::next
+                        )
+                )
+        ).doOnEach(onEach("bodies")).name("bodies");
+    }
+
+    private Mono<JMSContext> factoryAndContext
             (
                     ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
                     String url,
@@ -88,7 +93,7 @@ public class ReactivePublishers
             )
     {
         final Mono<ConnectionFactory> factoryM =
-                ops.ops.instantiateConnectionFactory2(connectionFactory, url).<Mono<ConnectionFactory>>apply(
+                ops.instantiateConnectionFactory2(connectionFactory, url).<Mono<ConnectionFactory>>apply(
                                 Mono::error,
                                 Mono::just
                         ).doOnEach(onEach("factory")).name("factory").
@@ -96,7 +101,7 @@ public class ReactivePublishers
 
         return
                 factoryM.flatMap(factory ->
-                        ops.ops.createContext(factory, userName, password).apply(
+                        ops.createContext(factory, userName, password).apply(
                                 Mono::error,
                                 Mono::just
                         )
@@ -136,9 +141,9 @@ public class ReactivePublishers
         final Mono<JMSContext> retriedM =
                 contextM.
                         retryWhen(backoff(maxAttempts, minBackoff)).flatMap(context ->
-                                ops.ops.setExceptionListener(context,
+                                ops.setExceptionListener(context,
                                         exception ->
-                                                nextReconnect(reconnects, ReactiveOps::reportFailure)
+                                                nextReconnect(reconnects, ReactiveUtils::reportFailure)
                                 ).<Mono<JMSContext>>map(
                                         Mono::error
                                 ).orElse(
@@ -154,21 +159,16 @@ public class ReactivePublishers
                 ).doOnEach(onEach("repeated")).name("repeated");
     }
 
-    private <T> Flux<T> listenOn
-            (
-                    Flux<JMSContext> contextM,
-                    String queueName,
-                    ThrowingFunction<Message, T, JMSException> converter
-            )
+    private Flux<JMSConsumer> createQueueAndConsumer(Flux<JMSContext> contextM, String queueName)
     {
-        final Flux<JMSConsumer> consumers =
+        return
                 contextM.flatMap(context ->
-                        ops.ops.createQueue(context, queueName).flatMap(queue ->
-                                ops.ops.createConsumer(context, queue)
+                        ops.createQueue(context, queueName).flatMap(queue ->
+                                ops.createConsumer(context, queue)
                         ).apply(
                                 errorCreatingQueueOrConsumer -> {
                                     consume(
-                                            ops.ops.closeContext(context),
+                                            ops.closeContext(context),
                                             errorClosing ->
                                                     log.warn("Closing context failed: {}", errorClosing.getMessage()),
                                             () ->
@@ -179,16 +179,23 @@ public class ReactivePublishers
                                 Mono::just
                         )
                 ).doOnEach(onEach("consumers")).name("consumers");
+    }
 
+    private <T> Flux<T> listenOn
+            (
+                    Flux<JMSConsumer> consumerF,
+                    ThrowingFunction<Message, T, JMSException> converter
+            )
+    {
         return
-                consumers.flatMap(consumer -> {
+                consumerF.flatMap(consumer -> {
                             Many<T> convertedS = Sinks.many().unicast().onBackpressureBuffer();
                             consumer.setMessageListener(message ->
-                                    ops.ops.applyToMessage(message, converter).consume(
+                                    ops.applyToMessage(message, converter).consume(
                                             exception ->
                                                     log.error("Error converting message {}", message, exception),
                                             converted ->
-                                                    tryNextEmission(convertedS, converted, ReactiveOps::reportFailure)
+                                                    tryNextEmission(convertedS, converted, ReactiveUtils::reportFailure)
                                     )
                             );
                             return convertedS.asFlux().

@@ -39,7 +39,7 @@ public final class JmsSyncReceiver implements Runnable
     {
         log.info("Start");
         final Flux<String> publisher =
-                publishers.syncMessages(connectionFactory, url,
+                publishers.receiveMessagesSynchronously(connectionFactory, url,
                         userName, password,
                         queueName,
                         String.class,

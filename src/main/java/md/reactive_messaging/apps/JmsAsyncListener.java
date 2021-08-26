@@ -45,7 +45,7 @@ public final class JmsAsyncListener<T> implements Runnable
     {
         log.info("Start");
         final Flux<T> publisher =
-                publishers.asyncMessages(
+                publishers.listenToMessagesAsynchronously(
                         connectionFactory, url,
                         userName, password,
                         queueName, converter,

@@ -2,7 +2,6 @@ package md.reactive_messaging.configs;
 
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 import md.reactive_messaging.jms.JmsSimplifiedApiOps;
-import md.reactive_messaging.reactive.ReactiveOps;
 import md.reactive_messaging.reactive.ReactivePublishers;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -23,13 +22,7 @@ public class CommonConfig
     }
 
     @Bean
-    ReactiveOps reactiveOps(JmsSimplifiedApiOps ops)
-    {
-        return new ReactiveOps(ops);
-    }
-
-    @Bean
-    ReactivePublishers reactivePublishers(ReactiveOps ops)
+    ReactivePublishers reactivePublishers(JmsSimplifiedApiOps ops)
     {
         return new ReactivePublishers(ops);
     }
