@@ -553,59 +553,64 @@ public class ReactivePublishers
         final String factoryFromCallableName = "factory-from-callable";
         final Mono<ConnectionFactory> factoryFromCallable =
                 Mono.fromCallable(() -> {
-                            log.info("Creating factory from callable");
-                            return connectionFactory.apply(url);
-                        }
-                ).doOnNext(factory -> log.info("Next {} {}", factoryFromCallableName, factory)
-                ).doOnSuccess(factory -> log.info("Success {} {}", factoryFromCallableName, factory)
-                ).doOnError(error -> log.error("Error {} {}", factoryFromCallableName, error.getMessage())
-                ).cache(
-                ).name(factoryFromCallableName);
+                                    log.info("Creating factory from callable");
+                                    return connectionFactory.apply(url);
+                                }
+                        ).
+                        doOnNext(factory -> log.info("Next {} {}", factoryFromCallableName, factory)).
+                        doOnSuccess(factory -> log.info("Success {} {}", factoryFromCallableName, factory)).
+                        doOnError(error -> log.error("Error {} {}", factoryFromCallableName, error.getMessage())).
+                        name(factoryFromCallableName).
+                        cache();
 
         final String factoryFunctionallyName = "factory-functionally";
         final Mono<ConnectionFactory> factoryFunctionally =
                 ops.ops.instantiateConnectionFactory(connectionFactory, url).<Mono<ConnectionFactory>>apply(
-                        Mono::error,
-                        Mono::just
-                ).doOnNext(factory -> log.info("Next {} {}", factoryFunctionallyName, factory)
-                ).doOnSuccess(factory -> log.info("Success {} {}", factoryFunctionallyName, factory)
-                ).doOnError(error -> log.error("Error {}: {}", factoryFunctionallyName, error.getMessage())
-                ).cache(
-                ).name(factoryFunctionallyName);
+                                Mono::error,
+                                Mono::just
+                        ).
+                        doOnNext(factory -> log.info("Next {} {}", factoryFunctionallyName, factory)).
+                        doOnSuccess(factory -> log.info("Success {} {}", factoryFunctionallyName, factory)).
+                        doOnError(error -> log.error("Error {}: {}", factoryFunctionallyName, error.getMessage())).
+                        name(factoryFunctionallyName).
+                        cache();
+        ;
 
         // context creation
 
         final String contextFromCallableName = "context-from-callable";
         final Mono<JMSContext> contextFromCallable =
                 factoryFromCallable.flatMap(factory ->
-                        Mono.fromCallable(() -> {
-                                    log.info("Creating context from callable");
-                                    return factory.createContext(userName, password);
-                                }
-                        )
-                ).doOnNext(context -> log.info("Next {} {}", contextFromCallableName, context)
-                ).doOnSuccess(context -> log.info("Success {} {}", contextFromCallableName, context)
-                ).doOnError(error -> log.error("Error {}: {}", contextFromCallableName, error.getMessage())
-                ).name(contextFromCallableName);
+                                Mono.fromCallable(() -> {
+                                            log.info("Creating context from callable");
+                                            return factory.createContext(userName, password);
+                                        }
+                                )
+                        ).
+                        doOnNext(context -> log.info("Next {} {}", contextFromCallableName, context)).
+                        doOnSuccess(context -> log.info("Success {} {}", contextFromCallableName, context)).
+                        doOnError(error -> log.error("Error {}: {}", contextFromCallableName, error.getMessage())).
+                        name(contextFromCallableName);
 
         final String contextFunctionallyName = "context-creation-functional";
         final Mono<JMSContext> contextCreationFunctional =
                 factoryFunctionally.flatMap(factory -> {
-                            log.info("Creating context functionally");
-                            return ops.ops.createContext(factory, userName, password).apply(
-                                    Mono::error,
-                                    Mono::just
-                            );
-                        }
-                ).doOnNext(context -> log.info("Next {} {}", contextFunctionallyName, context)
-                ).doOnSuccess(context -> log.info("Success {} {}", contextFunctionallyName, context)
-                ).doOnError(error -> log.error("Error {}: {}", contextFunctionallyName, error.getMessage())
-                ).name(contextFunctionallyName);
+                                    log.info("Creating context functionally");
+                                    return ops.ops.createContext(factory, userName, password).apply(
+                                            Mono::error,
+                                            Mono::just
+                                    );
+                                }
+                        ).
+                        doOnNext(context -> log.info("Next {} {}", contextFunctionallyName, context)).
+                        doOnSuccess(context -> log.info("Success {} {}", contextFunctionallyName, context)).
+                        doOnError(error -> log.error("Error {}: {}", contextFunctionallyName, error.getMessage())).
+                        name(contextFunctionallyName);
 
 
         // reconnects
 
-        final Many<Reconnect> reconnectSink =
+        final Many<Reconnect> reconnects =
                 Sinks.many().multicast().onBackpressureBuffer();
 
         // retrying
@@ -617,7 +622,7 @@ public class ReactivePublishers
                                 ops.ops.setExceptionListener(context,
                                         exception ->
                                                 notifyOnFailure(
-                                                        nextReconnect(reconnectSink)
+                                                        nextReconnect(reconnects)
                                                 )
                                 ).<Mono<JMSContext>>map(
                                         Mono::error
@@ -635,72 +640,114 @@ public class ReactivePublishers
                 contextCreationFunctional.onErrorResume(error -> {
                             log.error("Error creating context, retrying functionally");
                             return contextCreationFunctional.retryWhen(backoff(maxAttempts, minBackoff));
-                        }
-                ).doOnNext(context -> log.info("Next {} {}", retriedResumingName, context)
-                ).doOnSuccess(context -> log.info("Success {} {}", retriedResumingName, context)
-                ).doOnError(error -> log.error("Error {}: {}", retriedResumingName, error.getMessage())
-                ).name(retriedResumingName);
+                        }).
+                        doOnNext(context -> log.info("Next {} {}", retriedResumingName, context)).
+                        doOnSuccess(context -> log.info("Success {} {}", retriedResumingName, context)).
+                        doOnError(error -> log.error("Error {}: {}", retriedResumingName, error.getMessage())).
+                        name(retriedResumingName);
 
         // repeating
 
         final String repeatedStraightName = "repeated-straight";
         final Flux<JMSContext> repeatedStraight =
                 retriedStraight.repeatWhen(
-                        repeat -> {
-                            final String reconnectName = "reconnect";
-                            return reconnectSink.asFlux().
-                                    doOnNext(reconnect -> log.info("Next {}", reconnectName)).
-                                    doOnComplete(() -> log.info("Completed {}", reconnectName)).
-                                    doOnError(error -> log.error("Error {}: {}", reconnectName, error.getMessage())).
-                                    name(reconnectName);
-                        }
-                ).doOnNext(context -> log.info("Next {} {}", repeatedStraightName, context)
-                ).doOnComplete(() -> log.info("Completed {}", repeatedStraightName)
-                ).doOnError(error -> log.error("Error {}: {}", repeatedStraightName, error.getMessage())
-                ).name(repeatedStraightName);
+                                repeat -> {
+                                    final String reconnectName = "reconnect";
+                                    return reconnects.asFlux().
+                                            doOnNext(reconnect -> log.info("Next {}", reconnectName)).
+                                            doOnComplete(() -> log.info("Completed {}", reconnectName)).
+                                            doOnError(error -> log.error("Error {}: {}", reconnectName, error.getMessage())).
+                                            name(reconnectName);
+                                }
+                        ).
+                        doOnNext(context -> log.info("Next {} {}", repeatedStraightName, context)).
+                        doOnComplete(() -> log.info("Completed {}", repeatedStraightName)).
+                        doOnError(error -> log.error("Error {}: {}", repeatedStraightName, error.getMessage())).
+                        name(repeatedStraightName);
+
+        // queues and consumers
 
         final String consumersName = "consumers";
         final Flux<JMSConsumer> consumers =
                 repeatedStraight.flatMap(context ->
-                        ops.ops.createQueue(context, queueName).flatMap(queue ->
-                                ops.ops.createConsumer(context, queue)
-                        ).apply(
-                                errorCreatingQueueOrConsumer -> {
-                                    consume(
-                                            ops.ops.closeContext(context),
-                                            errorClosing ->
-                                                    log.warn("Closing context failed: {}", errorClosing.getMessage()),
-                                            () ->
-                                                    log.info("Closing context succeeded")
-                                    );
-                                    return Mono.error(errorCreatingQueueOrConsumer);
-                                },
-                                Mono::just
-                        )
-                ).doOnNext(consumer -> log.info("Next {} {}", consumersName, consumer)
-                ).doOnComplete(() -> log.info("Completed {}", consumersName)
-                ).doOnError(error -> log.error("Error {}: {}", consumersName, error.getMessage())
-                ).name(consumersName);
+                                ops.ops.createQueue(context, queueName).flatMap(queue ->
+                                        ops.ops.createConsumer(context, queue)
+                                ).apply(
+                                        errorCreatingQueueOrConsumer -> {
+                                            consume(
+                                                    ops.ops.closeContext(context),
+                                                    errorClosing ->
+                                                            log.warn("Closing context failed: {}", errorClosing.getMessage()),
+                                                    () ->
+                                                            log.info("Closing context succeeded")
+                                            );
+                                            return Mono.error(errorCreatingQueueOrConsumer);
+                                        },
+                                        Mono::just
+                                )
+                        ).
+                        doOnNext(consumer -> log.info("Next {} {}", consumersName, consumer)).
+                        doOnComplete(() -> log.info("Completed {}", consumersName)).
+                        doOnError(error -> log.error("Error {}: {}", consumersName, error.getMessage())).
+                        name(consumersName);
 
-        // sink
+        // listening
 
-        return consumers.flatMap(context -> {
-                    try
-                    {
-                        final T t = converter.apply(null);
-                        return Mono.just(t);
-                    }
-                    catch (JMSException e)
-                    {
-                        return Mono.error(e);
-                    }
-                }
-        );
+        final String convertedItemsName = "converted-items";
+        final Flux<T> convertedItems =
+                consumers.flatMap(consumer -> {
+                            Many<T> items = Sinks.many().unicast().onBackpressureBuffer();
+                            String itemsName = "items";
+                            consumer.setMessageListener(message -> {
+                                        try
+                                        {
+                                            final T converted = converter.apply(message);
+                                            notifyOnFailure(
+                                                    tryNextEmission(items, converted)
+                                            );
+                                        }
+                                        catch (JMSException e)
+                                        {
+                                            log.error("Error converting message {}", message, e);
+                                        }
+                                    }
+                            );
+                            return items.asFlux().
+                                    doOnNext(item -> log.info("Next {} {}", itemsName, item)).
+                                    doOnComplete(() -> log.info("Completed {}", itemsName)).
+                                    doOnError(error -> log.error("Error {}: {}", itemsName, error.getMessage())).
+                                    name(itemsName);
+                        }).
+                        doOnNext(convertedItem -> log.info("Next {} {}", convertedItemsName, convertedItem)).
+                        doOnComplete(() -> log.info("Completed {}", convertedItemsName)).
+                        doOnError(error -> log.error("Error {}: {}", convertedItemsName, error.getMessage())).
+                        name(convertedItemsName);
+
+        final Flux<T> constantSingleItem =
+                consumers.flatMap(context -> {
+                            try
+                            {
+                                final T t = converter.apply(null);
+                                return Mono.just(t);
+                            }
+                            catch (JMSException e)
+                            {
+                                return Mono.error(e);
+                            }
+                        }
+                );
+
+        return convertedItems;
     }
 
     private static Either<EmitResult, EmitResult> nextReconnect(Many<Reconnect> reconnectS)
     {
-        final EmitResult emitted = reconnectS.tryEmitNext(RECONNECT);
+        return tryNextEmission(reconnectS, RECONNECT);
+    }
+
+    private static <T> Either<EmitResult, EmitResult> tryNextEmission(Many<T> sink, T decoded)
+    {
+        final EmitResult emitted = sink.tryEmitNext(decoded);
         return right(emitted).filter(result -> result == OK);
     }
 
@@ -708,9 +755,9 @@ public class ReactivePublishers
     {
         result.consume(
                 failure ->
-                        log.error("Failed to emit reconnect {}", failure),
+                        log.error("Failed to emit {}", failure),
                 success ->
-                        log.info("Reconnected on error creating context")
+                        log.info("Emitted {}", success)
         );
     }
 
@@ -720,7 +767,7 @@ public class ReactivePublishers
                 failure ->
                         error(new IllegalStateException(failure.toString())),
                 success ->
-                        log.info("Reconnected on error creating context")
+                        log.info("Emitted")
         );
 
     }

@@ -21,7 +21,11 @@ import javax.jms.ConnectionFactory;
 import java.time.Duration;
 import java.util.function.Function;
 
+import static java.lang.String.format;
+import static java.time.Duration.between;
 import static java.time.Duration.ofSeconds;
+import static java.time.Instant.now;
+import static java.time.Instant.ofEpochMilli;
 import static md.reactive_messaging.Profiles.*;
 import static md.reactive_messaging.tasks.RethrowingHandler.RETHROWING_HANDLER;
 
@@ -159,8 +163,10 @@ public class ReactiveMessagingApplication
                                         userName(userName).password(password).
                                         queueName(queueName).
                                         converter(message ->
-                                                        "constant message"
-                                                //between(ofEpochMilli(message.getJMSDeliveryTime()), now())
+                                                format("Received after %s delivery",
+                                                        between(ofEpochMilli(message.getJMSDeliveryTime()), now())
+                                                ).toUpperCase()
+
                                         ).
                                         maxAttempts(maxAttempts).minBackoff(minBackoff).
                                         build(),

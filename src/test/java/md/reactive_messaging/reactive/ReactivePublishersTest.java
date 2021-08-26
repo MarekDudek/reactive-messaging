@@ -127,12 +127,12 @@ final class ReactivePublishersTest
                 publishers.asyncMessages5(
                         TibjmsConnectionFactory::new, URL,
                         USER_NAME, PASSWORD,
-                        QUEUE_NAME, message -> "CONSTANT MESSAGE",
+                        QUEUE_NAME, message -> message.getBody(String.class).toUpperCase(),
                         MAX_ATTEMPTS, MIN_BACKOFF
                 );
         flux.subscribe(
                 success ->
-                        log.info("Success {}", success),
+                        log.info("Success: {}", success),
                 error ->
                         log.error("Error", error),
                 () ->
