@@ -635,17 +635,6 @@ public class ReactivePublishers
                         doOnError(error -> log.error("Error {}: {}", retriedStraightName, error.getMessage())).
                         name(retriedStraightName);
 
-        final String retriedResumingName = "retrying-resuming";
-        final Mono<JMSContext> retriedResuming =
-                contextCreationFunctional.onErrorResume(error -> {
-                            log.error("Error creating context, retrying functionally");
-                            return contextCreationFunctional.retryWhen(backoff(maxAttempts, minBackoff));
-                        }).
-                        doOnNext(context -> log.info("Next {} {}", retriedResumingName, context)).
-                        doOnSuccess(context -> log.info("Success {} {}", retriedResumingName, context)).
-                        doOnError(error -> log.error("Error {}: {}", retriedResumingName, error.getMessage())).
-                        name(retriedResumingName);
-
         // repeating
 
         final String repeatedStraightName = "repeated-straight";
@@ -723,20 +712,6 @@ public class ReactivePublishers
                         doOnError(error -> log.error("Error {}: {}", convertedItemsName, error.getMessage())).
                         name(convertedItemsName);
 
-        final Flux<T> constantSingleItem =
-                consumers.flatMap(context -> {
-                            try
-                            {
-                                final T t = converter.apply(null);
-                                return Mono.just(t);
-                            }
-                            catch (JMSException e)
-                            {
-                                return Mono.error(e);
-                            }
-                        }
-                );
-
         return convertedItems;
     }
 
@@ -748,6 +723,7 @@ public class ReactivePublishers
     private static <T> Either<EmitResult, EmitResult> tryNextEmission(Many<T> sink, T decoded)
     {
         final EmitResult emitted = sink.tryEmitNext(decoded);
+        log.info("Emitted {}", decoded);
         return right(emitted).filter(result -> result == OK);
     }
 
@@ -757,7 +733,7 @@ public class ReactivePublishers
                 failure ->
                         log.error("Failed to emit {}", failure),
                 success ->
-                        log.info("Emitted {}", success)
+                        log.info("Emitted OK")
         );
     }
 
@@ -767,8 +743,7 @@ public class ReactivePublishers
                 failure ->
                         error(new IllegalStateException(failure.toString())),
                 success ->
-                        log.info("Emitted")
+                        log.trace("Emitted")
         );
-
     }
 }
