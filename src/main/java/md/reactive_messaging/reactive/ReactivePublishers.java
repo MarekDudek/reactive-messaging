@@ -134,9 +134,7 @@ public class ReactivePublishers
                         retryWhen(backoff(maxAttempts, minBackoff)).flatMap(context ->
                                 ops.ops.setExceptionListener(context,
                                         exception ->
-                                                reportFailure(
-                                                        nextReconnect(reconnects)
-                                                )
+                                                nextReconnect(reconnects, ReactiveOps::reportFailure)
                                 ).<Mono<JMSContext>>map(
                                         Mono::error
                                 ).orElse(
@@ -146,11 +144,9 @@ public class ReactivePublishers
 
         return
                 retriedM.repeatWhen(
-                        repeat -> {
-                            final String reconnectName = "reconnect";
-                            return reconnects.asFlux().
-                                    doOnEach(onEach(reconnectName)).name(reconnectName);
-                        }
+                        repeat ->
+                                reconnects.asFlux().
+                                        doOnEach(onEach("reconnect")).name("reconnect")
                 ).doOnEach(onEach("repeated")).name("repeated");
     }
 
@@ -178,19 +174,13 @@ public class ReactivePublishers
         return
                 consumers.flatMap(consumer -> {
                             Many<T> convertedS = Sinks.many().unicast().onBackpressureBuffer();
-                            consumer.setMessageListener(message -> {
-                                        try
-                                        {
-                                            final T converted = converter.apply(message);
-                                            reportFailure(
-                                                    tryNextEmission(convertedS, converted)
-                                            );
-                                        }
-                                        catch (JMSException e)
-                                        {
-                                            log.error("Error converting message {}", message, e);
-                                        }
-                                    }
+                            consumer.setMessageListener(message ->
+                                    ops.ops.applyToMessage(message, converter).consume(
+                                            exception ->
+                                                    log.error("Error converting message {}", message, exception),
+                                            converted ->
+                                                    tryNextEmission(convertedS, converted, ReactiveOps::reportFailure)
+                                    )
                             );
                             return convertedS.asFlux().
                                     doOnEach(onEach("converted")).name("converted");

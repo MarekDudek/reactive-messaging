@@ -152,16 +152,18 @@ public class ReactiveOps
         };
     }
 
-    public static Either<EmitResult, EmitResult> nextReconnect(Many<Reconnect> reconnect)
+    public static void nextReconnect(Many<Reconnect> reconnect, Consumer<Either<EmitResult, EmitResult>> continueC)
     {
-        return tryNextEmission(reconnect, RECONNECT);
+        tryNextEmission(reconnect, RECONNECT, continueC);
     }
 
-    public static <T> Either<EmitResult, EmitResult> tryNextEmission(Many<T> sink, T decoded)
+    public static <T> void tryNextEmission(Many<T> sink, T decoded, Consumer<Either<EmitResult, EmitResult>> continueC)
     {
-        final EmitResult emitted = sink.tryEmitNext(decoded);
         log.info("Emitting {}", decoded);
-        return right(emitted).filter(result -> result == OK);
+        final EmitResult emitted = sink.tryEmitNext(decoded);
+        final Either<EmitResult, EmitResult> result =
+                right(emitted).filter(r -> r == OK);
+        continueC.accept(result);
     }
 
     public static void reportFailure(Either<EmitResult, EmitResult> result)
