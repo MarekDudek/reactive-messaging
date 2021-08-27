@@ -23,4 +23,7 @@
         <appender-ref ref="STDOUT"/>
         <appender-ref ref="FILE"/>
     </logger>
+    <logger name="md.reactive_messaging.experiments.SubscriberExperimentTest" level="trace" additivity="false">
+        <appender-ref ref="STDOUT"/>
+    </logger>
 </configuration>
