@@ -12,7 +12,7 @@ import javax.jms.JMSException;
 import javax.jms.Message;
 import java.time.Duration;
 
-import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.defaultSubscriber;
+import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.simpleSubscribeAndForget;
 
 @Builder
 @Slf4j
@@ -48,7 +48,7 @@ public final class JmsAsyncListener<T> implements Runnable
                         queueName, converter,
                         maxAttempts, minBackoff
                 );
-        defaultSubscriber(publisher);
+        simpleSubscribeAndForget(publisher);
         log.info("Finish");
     }
 }

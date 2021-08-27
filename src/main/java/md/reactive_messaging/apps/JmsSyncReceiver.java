@@ -11,7 +11,7 @@ import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import java.time.Duration;
 
-import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.defaultSubscriber;
+import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.simpleSubscribeAndForget;
 
 @Builder
 @Slf4j
@@ -45,7 +45,7 @@ public final class JmsSyncReceiver implements Runnable
                         String.class,
                         maxAttempts, minBackoff
                 );
-        defaultSubscriber(publisher);
+        simpleSubscribeAndForget(publisher);
         log.info("Finish");
     }
 }

@@ -4,25 +4,17 @@ import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.throwing.ThrowingRunnable;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
-import org.reactivestreams.Subscriber;
 import reactor.core.publisher.Flux;
-import reactor.core.publisher.Mono;
 
-import java.util.List;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 import static java.lang.String.format;
-import static java.lang.Thread.sleep;
-import static java.time.Duration.ofNanos;
 import static java.time.Duration.ofSeconds;
 import static java.util.Collections.nCopies;
 import static md.reactive_messaging.functional.Functional.error;
-import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers;
 import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.subscribeAndAwait;
-import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.subscribeAndAwaitAlt;
-import static md.reactive_messaging.reactive.GenericSubscribers.MonoSubscribers.subscribeBusyWaitForDisposal;
-import static md.reactive_messaging.reactive.GenericSubscribers.publisherSubscribeJoin;
+import static md.reactive_messaging.reactive.GenericSubscribers.MonoSubscribers.subscribeAndAwait;
 import static org.apache.commons.lang3.StringUtils.repeat;
 import static reactor.core.scheduler.Schedulers.*;
 
@@ -143,78 +135,56 @@ final class SubscriberExperimentTest
                     return s;
                 });
 
-        final Runnable fluxBusyWait = () ->
-                FluxSubscribers.subscribeBusyWaitForDisposal(flux);
+        final Runnable block = () ->
+                log.info("Result is {}",
+                        flux.
+                                reduce(0, (i, n) -> i + 1).
+                                block());
 
-        final Runnable monoBusyWait = () ->
-                subscribeBusyWaitForDisposal(flux.last());
+        final Runnable blockLast = () ->
+                log.info("Last is {}",
+                        flux.
+                                blockLast());
+
+        final Runnable lastBlockTimeout = () ->
+                log.info("Last is {}",
+                        flux.
+                                last().
+                                block(ofSeconds(1)));
+
+        final Runnable collectBlock = () ->
+                log.info("Number of events {}",
+                        flux.
+                                collectList().
+                                block().
+                                size());
+
+        final Runnable countBlock = () ->
+                log.info("Number of events {}",
+                        flux.
+                                doOnNext(next -> log.info("next")).
+                                doOnCancel(() -> log.warn("cancelled")).
+                                doOnComplete(() -> log.info("complete")).
+                                doOnError(error -> log.info("error", error)).
+                                doOnDiscard(String.class, string -> error(new RuntimeException("discard"))).
+                                doOnRequest(request -> log.info("request {}", request)).
+                                doOnTerminate(() -> log.info("terminate")).
+                                count().block());
+
+        final ThrowingRunnable<InterruptedException> monoAwaiting = () ->
+                subscribeAndAwait(flux.last());
+
+        final ThrowingRunnable<InterruptedException> fluxAwaiting = () ->
+                subscribeAndAwait(flux);
+
+        final ThrowingRunnable<InterruptedException> monoAwaiting2 = () ->
+                subscribeAndAwait(flux.last(), new RequestAllSubscriber<>());
+
+        final ThrowingRunnable<InterruptedException> fluxAwaiting2 = () ->
+                subscribeAndAwait(flux, new RequestAllSubscriber<>());
 
 
-        final ThrowingRunnable<InterruptedException> fluxSleep = () -> {
-            final Subscriber<String> subscriber =
-                    FluxSubscribers.subscribeAndSleep(
-                            flux,
-                            new RequestAllSubscriber<>(),
-                            s -> {
-                                s.onNext("Right after subscribe");
-                            },
-                            ofSeconds(1)
-                    );
-            subscriber.onNext("After running");
-        };
-
-        final ThrowingRunnable<InterruptedException> joinSleep = () -> {
-            publisherSubscribeJoin(flux, new RequestAllSubscriber<>());
-            sleep(ofNanos(1).toMillis());
-        };
-
-        final Runnable block = () -> {
-            Integer result = flux.
-                    reduce(0, (i, n) -> i + 1).
-                    block();
-            log.info("Result is {}", result);
-        };
-
-        final Runnable blockLast = () -> {
-            String last = flux.blockLast();
-            log.info("Last is {}", last);
-        };
-
-        final Runnable lastBlockTimeout = () -> {
-            Mono<String> last = flux.last();
-            log.info("Last is {}", last.block(ofSeconds(1)));
-        };
-
-        final Runnable collectBlock = () -> {
-            Mono<List<String>> collected = flux.collectList();
-            final List<String> events = collected.block();
-            log.info("Number of events {}", events.size());
-        };
-
-        final Runnable countBlock = () -> {
-            Flux<String> transformed =
-                    flux.
-                            doOnNext(next -> log.info("next")).
-                            doOnCancel(() -> log.warn("cancelled")).
-                            doOnComplete(() -> log.info("complete")).
-                            doOnError(error -> log.info("error", error)).
-                            doOnDiscard(String.class, string ->
-                                    error(new RuntimeException("discard"))
-                            ).
-                            doOnRequest(request -> log.info("request {}", request)).
-                            doOnTerminate(() -> log.info("terminate"));
-            log.info("Number of events {}", transformed.count().block());
-        };
-
-        final ThrowingRunnable<InterruptedException> r9 = () -> {
-            subscribeAndAwait(flux);
-        };
-
-        final ThrowingRunnable<InterruptedException> r10 = () -> {
-            subscribeAndAwaitAlt(flux);
-        };
-
-        r10.run();
+        fluxAwaiting.run();
     }
 
     @Order(8)
