@@ -12,7 +12,7 @@ import javax.jms.JMSException;
 import javax.jms.Message;
 import java.time.Duration;
 
-import static md.reactive_messaging.reactive.GenericSubscribers.defaultSubscriber;
+import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.defaultSubscriber;
 
 @Builder
 @Slf4j
