@@ -111,6 +111,8 @@ final class SubscriberExperimentTest
         final Flux<Integer> sequence = Flux.fromStream(firstIntegersTill);
         final Flux<String> flux = sequence.
 
+                doOnSubscribe(subscription -> log.info("subscribed with {}", subscription)).
+
                 publishOn(newParallel("multiplier")).
                 flatMap(n -> Flux.fromIterable(nCopies(n, n))).
                 map(n -> {

@@ -34,8 +34,9 @@ public class ReactivePublishers
             )
     {
         final Mono<JMSContext> contextM = factoryAndContext(connectionFactory, url, userName, password);
-        final Flux<JMSContext> reliableF = retriedAndRepeated(contextM, maxAttempts, minBackoff);
-        final Flux<JMSConsumer> consumerF = queueAndConsumer(reliableF, queueName);
+        final Many<Reconnect> reconnects = Sinks.many().unicast().onBackpressureBuffer();
+        final Flux<JMSContext> reliableF = retriedAndRepeated(contextM, reconnects, maxAttempts, minBackoff);
+        final Flux<JMSConsumer> consumerF = queueAndConsumer(reliableF, reconnects, queueName);
         return bodiesReceived(consumerF, klass);
     }
 
@@ -50,9 +51,10 @@ public class ReactivePublishers
             )
     {
         final Mono<JMSContext> contextM = factoryAndContext(connectionFactory, url, userName, password);
-        final Flux<JMSContext> reliableF = retriedAndRepeated(contextM, maxAttempts, minBackoff);
-        final Flux<JMSConsumer> consumerF = queueAndConsumer(reliableF, queueName);
-        return heardInConsumer(consumerF, converter);
+        final Many<Reconnect> reconnects = Sinks.many().multicast().onBackpressureBuffer();
+        final Flux<JMSContext> reliableF = retriedAndRepeated(contextM, reconnects, maxAttempts, minBackoff);
+        final Flux<JMSConsumer> consumerF = queueAndConsumer(reliableF, reconnects, queueName);
+        return heardInConsumer(consumerF, reconnects, converter);
     }
 
     private Mono<JMSContext> factoryAndContext
@@ -78,21 +80,34 @@ public class ReactivePublishers
     private Flux<JMSContext> retriedAndRepeated
             (
                     Mono<JMSContext> contextM,
+                    Many<Reconnect> reconnects,
                     long maxAttempts, Duration minBackoff
             )
     {
-        final Many<Reconnect> reconnects = Sinks.many().unicast().onBackpressureBuffer();
         return
                 contextM.
                         retryWhen(
                                 backoff(maxAttempts, minBackoff).
-                                        doBeforeRetry(retry -> log.warn("Will retry {}", retry)).
-                                        doAfterRetry(retry -> log.warn("Retried {}", retry))).flatMap(context ->
+                                        doBeforeRetry(retry -> log.warn("will retry {}", retry)).
+                                        doAfterRetry(retry -> log.warn("retried {}", retry))).flatMap(context ->
                                 ops.setExceptionListener(context,
-                                        exception ->
-                                                nextReconnect(reconnects, ReactiveUtils::reportFailure)
+                                        exceptionHeard -> {
+                                            log.error("exception heard in context '{}'", exceptionHeard.getMessage());
+                                            reconnect(reconnects, ReactiveUtils::reportFailure);
+                                        }
                                 ).<Mono<JMSContext>>map(
-                                        Mono::error
+                                        errorSettingListener -> {
+                                            log.error("error setting listener: '{}'", errorSettingListener.getMessage());
+                                            consume(
+                                                    ops.closeContext(context),
+                                                    errorClosing ->
+                                                            log.warn("closing context failed: '{}'", errorClosing.getMessage()),
+                                                    () ->
+                                                            log.info("closing context succeeded")
+                                            );
+                                            reconnect(reconnects, ReactiveUtils::reportFailure);
+                                            return Mono.error(errorSettingListener);
+                                        }
                                 ).orElse(
                                         Mono.just(context)
                                 )
@@ -107,6 +122,7 @@ public class ReactivePublishers
     private Flux<JMSConsumer> queueAndConsumer
             (
                     Flux<JMSContext> contextM,
+                    Many<Reconnect> reconnects,
                     String queueName
             )
     {
@@ -115,17 +131,19 @@ public class ReactivePublishers
                         ops.createQueue(context, queueName).flatMap(queue ->
                                 ops.createConsumer(context, queue)
                         ).apply(
-                                errorCreatingQueueOrConsumer -> {
+                                errorCreating -> {
+                                    log.error("error creating queue or consumer: '{}'", errorCreating.getMessage());
                                     consume(
                                             ops.closeContext(context),
                                             errorClosing ->
-                                                    log.warn("Closing context failed: {}", errorClosing.getMessage()),
+                                                    log.warn("closing context failed: {}", errorClosing.getMessage()),
                                             () ->
-                                                    log.info("Closing context succeeded")
+                                                    log.info("closing context succeeded")
                                     );
-                                    return Mono.error(errorCreatingQueueOrConsumer);
+                                    reconnect(reconnects, ReactiveUtils::reportFailure);
+                                    return Flux.error(errorCreating);
                                 },
-                                Mono::just
+                                Flux::just
                         )
                 ).doOnEach(onEach("consumers")).name("consumers");
     }
@@ -150,22 +168,30 @@ public class ReactivePublishers
     private <T> Flux<T> heardInConsumer
             (
                     Flux<JMSConsumer> consumerF,
+                    Many<Reconnect> reconnects,
                     ThrowingFunction<Message, T, JMSException> converter
             )
     {
         return
                 consumerF.flatMap(consumer -> {
-                            Many<T> convertedS = Sinks.many().unicast().onBackpressureBuffer();
-                            consumer.setMessageListener(message ->
-                                    ops.applyToMessage(message, converter).consume(
-                                            exception ->
-                                                    log.error("Error converting message {}", message, exception),
-                                            converted ->
-                                                    tryNextEmission(convertedS, converted, ReactiveUtils::reportFailure)
-                                    )
-                            );
-                            return convertedS.asFlux().
-                                    doOnEach(onEach("converted")).name("converted");
+                            Many<T> sink = Sinks.many().multicast().onBackpressureBuffer();
+                            return
+                                    ops.setMessageListener(consumer, messageHeard ->
+                                            ops.applyToMessage(messageHeard, converter).consume(
+                                                    exception ->
+                                                            log.error("error converting message {}", messageHeard, exception),
+                                                    converted ->
+                                                            emit(sink, converted, ReactiveUtils::reportFailure)
+                                            )
+                                    ).<Flux<T>>map(errorSettingListener -> {
+                                                log.error("error setting message listener: '{}'", errorSettingListener.getMessage());
+                                                reconnect(reconnects, ReactiveUtils::reportFailure);
+                                                return Flux.error(errorSettingListener);
+                                            }
+                                    ).orElse(
+                                            sink.asFlux().
+                                                    doOnEach(onEach("converted")).name("converted")
+                                    );
                         }
                 ).doOnEach(onEach("published")).name("published");
     }

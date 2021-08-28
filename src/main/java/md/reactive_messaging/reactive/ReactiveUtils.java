@@ -46,27 +46,27 @@ public enum ReactiveUtils
         };
     }
 
-    public static <T> void tryNextEmission
+    public static <T> void emit
             (
                     Many<T> sink,
-                    T decoded,
+                    T t,
                     Consumer<Either<EmitResult, EmitResult>> continueC
             )
     {
-        log.info("Emitting {}", decoded);
-        final EmitResult emitted = sink.tryEmitNext(decoded);
+        log.info("Emitting {}", t);
+        final EmitResult emitted = sink.tryEmitNext(t);
         final Either<EmitResult, EmitResult> result =
                 right(emitted).filter(r -> r == OK);
         continueC.accept(result);
     }
 
-    public static void nextReconnect
+    public static void reconnect
             (
                     Many<Reconnect> reconnect,
                     Consumer<Either<EmitResult, EmitResult>> continueC
             )
     {
-        tryNextEmission(reconnect, RECONNECT, continueC);
+        emit(reconnect, RECONNECT, continueC);
     }
 
     public static void reportFailure(Either<EmitResult, EmitResult> result)
