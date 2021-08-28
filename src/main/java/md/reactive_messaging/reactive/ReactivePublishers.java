@@ -81,10 +81,13 @@ public class ReactivePublishers
                     long maxAttempts, Duration minBackoff
             )
     {
-        final Many<Reconnect> reconnects = Sinks.many().multicast().onBackpressureBuffer();
+        final Many<Reconnect> reconnects = Sinks.many().unicast().onBackpressureBuffer();
         return
                 contextM.
-                        retryWhen(backoff(maxAttempts, minBackoff)).flatMap(context ->
+                        retryWhen(
+                                backoff(maxAttempts, minBackoff).
+                                        doBeforeRetry(retry -> log.warn("Will retry {}", retry)).
+                                        doAfterRetry(retry -> log.warn("Retried {}", retry))).flatMap(context ->
                                 ops.setExceptionListener(context,
                                         exception ->
                                                 nextReconnect(reconnects, ReactiveUtils::reportFailure)

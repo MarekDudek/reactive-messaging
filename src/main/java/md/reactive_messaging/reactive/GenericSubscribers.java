@@ -1,13 +1,20 @@
 package md.reactive_messaging.reactive;
 
 import lombok.extern.slf4j.Slf4j;
+import md.reactive_messaging.functional.throwing.ThrowingRunnable;
+import org.apache.commons.lang3.function.TriFunction;
+import org.reactivestreams.Publisher;
 import org.reactivestreams.Subscriber;
+import reactor.core.Disposable;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 import java.util.concurrent.CountDownLatch;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
 import static java.lang.Thread.currentThread;
+import static md.reactive_messaging.reactive.GenericSubscribers.Utils.*;
 
 @Slf4j
 public enum GenericSubscribers
@@ -18,34 +25,19 @@ public enum GenericSubscribers
     {
         ;
 
-        public static void simpleSubscribeAndForget(Mono<?> mono)
+        public static <T> void simpleSubscribeAndForget(Mono<T> mono)
         {
-            mono.subscribe(
-                    success ->
-                            log.info("[M] Success {}", success),
-                    error ->
-                            log.error("[M] Error", error),
-                    () ->
-                            log.info("[M] Completed")
-            );
+            subscribeAndForget(mono::subscribe, Mono.class);
         }
 
         public static void subscribeAndAwait(Mono<?> mono) throws InterruptedException
         {
-            CountDownLatch latch = new CountDownLatch(1);
-            mono.
-                    doOnTerminate(latch::countDown).
-                    subscribe();
-            latch.await();
+            subscribeAndLatch(mono::doOnTerminate, Mono::subscribe).await();
         }
 
-        public static <T> void subscribeAndAwait(Mono<T> flux, Subscriber<T> subscriber) throws InterruptedException
+        public static <T> void subscribeAndAwait(Mono<T> mono, Subscriber<T> subscriber) throws InterruptedException
         {
-            CountDownLatch latch = new CountDownLatch(1);
-            flux.
-                    doOnTerminate(latch::countDown).
-                    subscribe(subscriber);
-            latch.await();
+            subscribeAndLatch(mono::doOnTerminate, p -> p.subscribe(subscriber)).await();
         }
     }
 
@@ -53,64 +45,87 @@ public enum GenericSubscribers
     {
         ;
 
-        public static void simpleSubscribeAndForget(Flux<?> flux)
+        public static <T> void simpleSubscribeAndForget(Flux<T> flux)
         {
-            flux.subscribe(
-                    success ->
-                            log.info("[F] Success {}", success),
-                    error ->
-                            log.error("[F] Error", error),
-                    () ->
-                            log.info("[F] Completed")
-            );
+            subscribeAndForget(flux::subscribe, Flux.class);
         }
 
         public static void subscribeAndAwait(Flux<?> flux) throws InterruptedException
         {
-            CountDownLatch latch = new CountDownLatch(1);
-            flux.
-                    doOnTerminate(latch::countDown).
-                    subscribe();
-            latch.await();
+            subscribeAndLatch(flux::doOnTerminate, Flux::subscribe).await();
         }
 
         public static <T> void subscribeAndAwait(Flux<T> flux, Subscriber<T> subscriber) throws InterruptedException
         {
-            CountDownLatch latch = new CountDownLatch(1);
-            flux.
-                    doOnTerminate(latch::countDown).
-                    subscribe(subscriber);
-            latch.await();
+            subscribeAndLatch(flux::doOnTerminate, p -> p.subscribe(subscriber)).await();
         }
 
         public static void subscribeOnAnotherThreadAndAwait(Flux<?> flux) throws InterruptedException
         {
-            final Thread thread = new Thread(() -> {
-                try
-                {
-                    subscribeAndAwait(flux);
-                }
-                catch (InterruptedException e)
-                {
-                    currentThread().interrupt();
-                }
-            }, "flux-default-subscriber");
-            thread.start();
-            thread.join();
+            onAnotherThread(() -> subscribeAndLatch(flux::doOnTerminate, Flux::subscribe).await(), "flux-subscriber-default");
         }
 
         public static <T> void subscribeOnAnotherThreadAndAwait(Flux<T> flux, Subscriber<T> subscriber) throws InterruptedException
         {
-            final Thread thread = new Thread(() -> {
-                try
-                {
-                    subscribeAndAwait(flux, subscriber);
-                }
-                catch (InterruptedException e)
-                {
-                    currentThread().interrupt();
-                }
-            }, "flux-custom-subscriber");
+            onAnotherThread(() -> subscribeAndLatch(flux::doOnTerminate, Flux::subscribe).await(), "flux-subscriber-custom");
+        }
+    }
+
+    enum Utils
+    {
+        ;
+
+        static <NEXT, ERROR extends Throwable> Disposable subscribeAndForget
+                (
+                        TriFunction<
+                                Consumer<NEXT>,
+                                Consumer<ERROR>,
+                                Runnable,
+                                Disposable
+                                > consumer,
+                        Class<? extends Publisher> klass
+                )
+        {
+            String type = klass.getSimpleName().toLowerCase();
+            return consumer.apply(
+                    next -> log.info("{}-next '{}'", type, next),
+                    error -> log.error("{}-error '{}'", type, error.getMessage()),
+                    () -> log.info("{}-complete", type)
+            );
+        }
+
+        static <PUBLISHER> CountDownLatch subscribeAndLatch
+                (
+                        Function<Runnable, PUBLISHER> doOnTerminate,
+                        Consumer<PUBLISHER> subscribe
+                )
+        {
+            final CountDownLatch latch = new CountDownLatch(1);
+            final PUBLISHER publisher = doOnTerminate.apply(latch::countDown);
+            subscribe.accept(publisher);
+            return latch;
+        }
+
+        static void onAnotherThread
+                (
+                        ThrowingRunnable<InterruptedException> runnable,
+                        String name
+                ) throws InterruptedException
+        {
+            final Thread thread =
+                    new Thread(
+                            () -> {
+                                try
+                                {
+                                    runnable.run();
+                                }
+                                catch (InterruptedException e)
+                                {
+                                    currentThread().interrupt();
+                                }
+                            },
+                            name
+                    );
             thread.start();
             thread.join();
         }
