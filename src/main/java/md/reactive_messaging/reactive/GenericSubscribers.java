@@ -32,12 +32,14 @@ public enum GenericSubscribers
 
         public static void subscribeAndAwait(Mono<?> mono) throws InterruptedException
         {
-            subscribeAndLatch(mono::doOnTerminate, Mono::subscribe).await();
+            subscribeAndLatch(mono::doOnTerminate, Mono::subscribe).
+                    await();
         }
 
         public static <T> void subscribeAndAwait(Mono<T> mono, Subscriber<T> subscriber) throws InterruptedException
         {
-            subscribeAndLatch(mono::doOnTerminate, p -> p.subscribe(subscriber)).await();
+            subscribeAndLatch(mono::doOnTerminate, p -> p.subscribe(subscriber)).
+                    await();
         }
     }
 
@@ -52,22 +54,30 @@ public enum GenericSubscribers
 
         public static void subscribeAndAwait(Flux<?> flux) throws InterruptedException
         {
-            subscribeAndLatch(flux::doOnTerminate, Flux::subscribe).await();
+            subscribeAndLatch(flux::doOnTerminate, Flux::subscribe).
+                    await();
         }
 
         public static <T> void subscribeAndAwait(Flux<T> flux, Subscriber<T> subscriber) throws InterruptedException
         {
-            subscribeAndLatch(flux::doOnTerminate, p -> p.subscribe(subscriber)).await();
+            subscribeAndLatch(flux::doOnTerminate, p -> p.subscribe(subscriber)).
+                    await();
         }
 
         public static void subscribeOnAnotherThreadAndAwait(Flux<?> flux) throws InterruptedException
         {
-            onAnotherThread(() -> subscribeAndLatch(flux::doOnTerminate, Flux::subscribe).await(), "flux-subscriber-default");
+            onAnotherThread(() ->
+                            subscribeAndLatch(flux::doOnTerminate, Flux::subscribe).
+                                    await()
+                    , "flux-subscriber-default");
         }
 
         public static <T> void subscribeOnAnotherThreadAndAwait(Flux<T> flux, Subscriber<T> subscriber) throws InterruptedException
         {
-            onAnotherThread(() -> subscribeAndLatch(flux::doOnTerminate, Flux::subscribe).await(), "flux-subscriber-custom");
+            onAnotherThread(() ->
+                            subscribeAndLatch(flux::doOnTerminate, Flux::subscribe).
+                                    await()
+                    , "flux-subscriber-custom");
         }
     }
 
