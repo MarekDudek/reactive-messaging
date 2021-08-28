@@ -74,27 +74,6 @@ public enum GenericSubscribers
             latch.await();
         }
 
-        public static void subscribeOnAnotherThreadAndAwait(Flux<?> flux) throws InterruptedException
-        {
-            final Thread t =
-                    new Thread(() -> {
-                        CountDownLatch latch = new CountDownLatch(1);
-                        flux.
-                                doOnTerminate(latch::countDown).
-                                subscribe(next -> log.info("next {}", next));
-                        try
-                        {
-                            latch.await();
-                        }
-                        catch (InterruptedException e)
-                        {
-                            currentThread().interrupt();
-                        }
-                    }, "flux-subscriber-thread");
-            t.start();
-            t.join();
-        }
-
         public static <T> void subscribeAndAwait(Flux<T> flux, Subscriber<T> subscriber) throws InterruptedException
         {
             CountDownLatch latch = new CountDownLatch(1);
@@ -102,6 +81,38 @@ public enum GenericSubscribers
                     doOnTerminate(latch::countDown).
                     subscribe(subscriber);
             latch.await();
+        }
+
+        public static void subscribeOnAnotherThreadAndAwait(Flux<?> flux) throws InterruptedException
+        {
+            final Thread thread = new Thread(() -> {
+                try
+                {
+                    subscribeAndAwait(flux);
+                }
+                catch (InterruptedException e)
+                {
+                    currentThread().interrupt();
+                }
+            }, "flux-default-subscriber");
+            thread.start();
+            thread.join();
+        }
+
+        public static <T> void subscribeOnAnotherThreadAndAwait(Flux<T> flux, Subscriber<T> subscriber) throws InterruptedException
+        {
+            final Thread thread = new Thread(() -> {
+                try
+                {
+                    subscribeAndAwait(flux, subscriber);
+                }
+                catch (InterruptedException e)
+                {
+                    currentThread().interrupt();
+                }
+            }, "flux-custom-subscriber");
+            thread.start();
+            thread.join();
         }
     }
 }
