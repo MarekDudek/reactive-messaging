@@ -7,6 +7,8 @@ import reactor.core.publisher.Mono;
 
 import java.util.concurrent.CountDownLatch;
 
+import static java.lang.Thread.currentThread;
+
 @Slf4j
 public enum GenericSubscribers
 {
@@ -70,6 +72,27 @@ public enum GenericSubscribers
                     doOnTerminate(latch::countDown).
                     subscribe();
             latch.await();
+        }
+
+        public static void subscribeOnAnotherThreadAndAwait(Flux<?> flux) throws InterruptedException
+        {
+            final Thread t =
+                    new Thread(() -> {
+                        CountDownLatch latch = new CountDownLatch(1);
+                        flux.
+                                doOnTerminate(latch::countDown).
+                                subscribe(next -> log.info("next {}", next));
+                        try
+                        {
+                            latch.await();
+                        }
+                        catch (InterruptedException e)
+                        {
+                            currentThread().interrupt();
+                        }
+                    }, "flux-subscriber-thread");
+            t.start();
+            t.join();
         }
 
         public static <T> void subscribeAndAwait(Flux<T> flux, Subscriber<T> subscriber) throws InterruptedException

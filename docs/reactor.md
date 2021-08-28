@@ -32,3 +32,4 @@
   * Fussion affects this - fused operators for sure work on the same thread
 * What happens to Scheduler if action in operator throws exception?
   * does it recreate new worker thread?
+* subscribeOn vs publishOn

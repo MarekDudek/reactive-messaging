@@ -5,6 +5,7 @@ import md.reactive_messaging.functional.throwing.ThrowingRunnable;
 import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.MethodOrderer.OrderAnnotation;
 import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -14,6 +15,7 @@ import static java.time.Duration.ofSeconds;
 import static java.util.Collections.nCopies;
 import static md.reactive_messaging.functional.Functional.error;
 import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.subscribeAndAwait;
+import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.subscribeOnAnotherThreadAndAwait;
 import static md.reactive_messaging.reactive.GenericSubscribers.MonoSubscribers.subscribeAndAwait;
 import static org.apache.commons.lang3.StringUtils.repeat;
 import static reactor.core.scheduler.Schedulers.*;
@@ -103,37 +105,45 @@ final class SubscriberExperimentTest
     @Test
     void experiment() throws InterruptedException
     {
-        final int items = 1_000;
-        final Stream<Integer> stream = IntStream.iterate(items, i -> i - 1).boxed().limit(items);
-        final Flux<Integer> sequence = Flux.fromStream(stream);
+        final int startCount = 10;
+        final Stream<Integer> countDownFromStartCountToOne = IntStream.iterate(startCount, i -> i - 1).boxed().limit(startCount);
+        final Stream<Integer> firstIntegersTill = IntStream.rangeClosed(1, 10).boxed();
+        final Flux<Integer> sequence = Flux.fromStream(firstIntegersTill);
         final Flux<String> flux = sequence.
-                subscribeOn(newParallel("par")).
+
+                subscribeOn(newParallel("subscriber")).
+
+                publishOn(newParallel("multiplier")).
                 flatMap(n -> Flux.fromIterable(nCopies(n, n))).
                 map(n -> {
                     log.trace("copy of n is {}", n);
                     return n;
                 }).
-                doOnNext(i -> {
-                    log.trace("who will do it and when?");
-                }).
-                subscribeOn(newSingle("ser")).
+                doOnNext(n -> log.trace("next copy is {}", n)).
+
+                publishOn(newSingle("tripler")).
                 map(n -> n * n * n).
                 map(n -> {
                     log.trace("n tripled is {}", n);
                     return n;
                 }).
-                subscribeOn(single()).
+                doOnNext(n -> log.info("next tripled is {}", n)).
+
+                publishOn(newBoundedElastic(1, 1, "converter")).
                 map(n -> Integer.toString(n)).
                 map(s -> {
                     log.trace("converted to string is '{}'", s);
                     return s;
                 }).
-                subscribeOn(immediate()).
+                doOnNext(s -> log.trace("next converted is '{}'", s)).
+
+                publishOn(Schedulers.newParallel("formatter")).
                 map(s -> format("%s has length %d", s, s.length())).
                 map(s -> {
                     log.trace("formatted is '{}'", s);
                     return s;
-                });
+                }).
+                doOnNext(s -> log.trace("next formatted is {}", s));
 
         final Runnable block = () ->
                 log.info("Result is {}",
@@ -171,20 +181,39 @@ final class SubscriberExperimentTest
                                 doOnTerminate(() -> log.info("terminate")).
                                 count().block());
 
-        final ThrowingRunnable<InterruptedException> monoAwaiting = () ->
-                subscribeAndAwait(flux.last());
+        final ThrowingRunnable<InterruptedException> monoSubscribedDefault = () ->
+                subscribeAndAwait(
+                        flux.
+                                doOnSubscribe(s -> log.info("subscribed")).
+                                last()
+                );
 
-        final ThrowingRunnable<InterruptedException> fluxAwaiting = () ->
-                subscribeAndAwait(flux);
+        final ThrowingRunnable<InterruptedException> fluxSubscribedDefault = () ->
+                subscribeAndAwait(
+                        flux.
+                                doOnSubscribe(s -> log.info("subscribed"))
+                );
 
-        final ThrowingRunnable<InterruptedException> monoAwaiting2 = () ->
-                subscribeAndAwait(flux.last(), new RequestAllSubscriber<>());
+        final ThrowingRunnable<InterruptedException> monoSubscribedCustom = () ->
+                subscribeAndAwait(
+                        flux.
+                                doOnSubscribe(s -> log.info("subscribed")).
+                                last(), new RequestAllSubscriber<>());
 
-        final ThrowingRunnable<InterruptedException> fluxAwaiting2 = () ->
-                subscribeAndAwait(flux, new RequestAllSubscriber<>());
+        final ThrowingRunnable<InterruptedException> fluxSubscribedCustom = () ->
+                subscribeAndAwait(
+                        flux.
+                                doOnSubscribe(s -> log.info("subscribed")),
+                        new RequestAllSubscriber<>()
+                );
 
+        final ThrowingRunnable<InterruptedException> fluxSubscribedOnAnotherThread = () ->
+                subscribeOnAnotherThreadAndAwait(
+                        flux.
+                                doOnSubscribe(s -> log.info("subscribed"))
+                );
 
-        fluxAwaiting.run();
+        fluxSubscribedDefault.run();
     }
 
     @Order(8)
