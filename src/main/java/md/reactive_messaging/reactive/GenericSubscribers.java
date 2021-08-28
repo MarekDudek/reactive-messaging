@@ -93,7 +93,8 @@ public enum GenericSubscribers
                                 Runnable,
                                 Disposable
                                 > consumer,
-                        Class<? extends Publisher> klass
+                        @SuppressWarnings("rawtypes")
+                                Class<? extends Publisher> klass
                 )
         {
             String type = klass.getSimpleName().toLowerCase();
