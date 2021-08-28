@@ -27,13 +27,13 @@ public enum ReactiveUtils
             switch (signal.getType())
             {
                 case ON_NEXT:
-                    log.info("Next in {} - {}", name, signal.get());
+                    log.info("NEXT     {} - {}", name, signal.get());
                     break;
                 case ON_COMPLETE:
-                    log.info("Completed {} with {}", name, signal.get());
+                    log.info("COMPLETE {}", name);
                     break;
                 case ON_ERROR:
-                    log.info("Error in {} - {}", name, ofNullable(signal.getThrowable()).map(
+                    log.info("ERROR    {} - {}", name, ofNullable(signal.getThrowable()).map(
                             Throwable::getMessage
                     ).orElse(
                             "!NO MESSAGE!"
