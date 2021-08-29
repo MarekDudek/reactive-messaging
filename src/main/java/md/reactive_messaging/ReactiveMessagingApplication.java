@@ -6,6 +6,7 @@ import md.reactive_messaging.apps.JmsSyncReceiver;
 import md.reactive_messaging.apps.JmsSyncSender;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
+import md.reactive_messaging.jms.MessageConverters;
 import md.reactive_messaging.reactive.ReactivePublishers;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
@@ -20,11 +21,7 @@ import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import java.time.Duration;
 
-import static java.lang.String.format;
-import static java.time.Duration.between;
 import static java.time.Duration.ofSeconds;
-import static java.time.Instant.now;
-import static java.time.Instant.ofEpochMilli;
 import static md.reactive_messaging.Profiles.*;
 import static md.reactive_messaging.tasks.RethrowingHandler.RETHROWING_HANDLER;
 
@@ -96,17 +93,7 @@ public class ReactiveMessagingApplication
                                         connectionFactory(connectionFactory).url(url).
                                         userName(userName).password(password).
                                         queueName(queueName).
-                                        converter(message ->
-                                                format("RECEIVED %s (after %s)",
-                                                        message.getBody(String.class),
-                                                        between(
-                                                                ofEpochMilli(
-                                                                        message.getJMSDeliveryTime()
-                                                                ),
-                                                                now()
-                                                        )
-                                                )
-                                        ).
+                                        converter(MessageConverters::formatStringBodyWithDeliveryDelay).
                                         maxAttempts(maxAttempts).minBackoff(minBackoff).
                                         build(),
                                 JmsAsyncListener.class.getName()

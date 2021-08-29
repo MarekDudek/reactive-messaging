@@ -11,6 +11,7 @@ import org.junit.jupiter.api.TestMethodOrder;
 import javax.jms.*;
 
 import static md.reactive_messaging.TestTibcoEmsConfig.*;
+import static md.reactive_messaging.jms.MessageConverters.getStringBody;
 
 @Slf4j
 @TestMethodOrder(OrderAnnotation.class)
@@ -109,7 +110,7 @@ final class JmsSimplifiedApiTest
                 message -> {
                     try
                     {
-                        final String body = message.getBody(String.class);
+                        final String body = getStringBody(message);
                         log.info("Asynchronously heard '{}'", body);
                     }
                     catch (JMSException e)

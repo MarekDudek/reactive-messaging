@@ -7,7 +7,6 @@ import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
 
 import javax.jms.JMSException;
-import javax.jms.TextMessage;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -73,7 +72,7 @@ public final class JmsLegacyApiManager
                                                 ops.startQueueConnection(listenedConnection).flatMap(startedConnection ->
                                                         ops.receiveMessage(consumer).flatMap(receivedMessage -> {
                                                                     final Either<JMSException, String> extractedMessage =
-                                                                            ops.applyMessage(receivedMessage, message -> ((TextMessage) message).getText());
+                                                                            ops.applyMessage(receivedMessage, MessageConverters::getText);
                                                                     ops.stopQueueConnection(startedConnection).flatMap(
                                                                             ops::closeConnection
                                                                     ).consume(
