@@ -77,27 +77,28 @@ public class ReactiveOps
                         )
                 );
         Flux<JMSConsumer> monitoredQueueConsumerF = monitored(consumerF, "queue-consumer");
-        final Flux<M> messageF = monitoredQueueConsumerF.flatMap(consumer -> {
-                    Many<M> messageS = Sinks.many().multicast().onBackpressureBuffer();
-                    consumer.setMessageListener(message -> {
-                                try
-                                {
-                                    final M converted = converter.apply(message);
-                                    messageS.emitNext(converted, ALWAYS_RETRY);
-                                }
-                                catch (JMSException e)
-                                {
-                                    log.error("Error extracting from message");
-                                }
-                            }
-                    );
-                    final Flux<M> messageHeardF = messageS.
-                            asFlux().
-                            subscribeOn(newSingle("messages-subscriber")).
-                            publishOn(newSingle("messages-publisher"));
-                    return monitored(messageHeardF, "messages-heard");
-                }
-        );
+        final Flux<M> messageF =
+                monitoredQueueConsumerF.flatMap(consumer -> {
+                            Many<M> messageS = Sinks.many().multicast().onBackpressureBuffer();
+                            consumer.setMessageListener(message -> {
+                                        try
+                                        {
+                                            final M converted = converter.apply(message);
+                                            messageS.emitNext(converted, ALWAYS_RETRY);
+                                        }
+                                        catch (JMSException e)
+                                        {
+                                            log.error("Error extracting from message");
+                                        }
+                                    }
+                            );
+                            final Flux<M> messageHeardF = messageS.
+                                    asFlux().
+                                    subscribeOn(newSingle("messages-subscriber")).
+                                    publishOn(newSingle("messages-publisher"));
+                            return monitored(messageHeardF, "messages-heard");
+                        }
+                );
         return monitored(messageF, "messages");
     }
 

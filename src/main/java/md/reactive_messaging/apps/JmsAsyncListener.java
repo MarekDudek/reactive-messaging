@@ -4,6 +4,7 @@ import lombok.Builder;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
+import md.reactive_messaging.reactive.ReactiveOps;
 import md.reactive_messaging.reactive.ReactivePublishers;
 import reactor.core.publisher.Flux;
 
@@ -20,6 +21,8 @@ public final class JmsAsyncListener<T> implements Runnable
 {
     @NonNull
     private final ReactivePublishers publishers;
+    @NonNull
+    private final ReactiveOps ops;
     @NonNull
     private final ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory;
     @NonNull
@@ -41,14 +44,14 @@ public final class JmsAsyncListener<T> implements Runnable
     public void run()
     {
         log.info("Start");
-        final Flux<T> publisher =
-                publishers.listenToMessagesAsynchronously(
+        final Flux<T> messages =
+                ops.messages(
                         connectionFactory, url,
                         userName, password,
                         queueName, converter,
                         maxAttempts, minBackoff
                 );
-        simpleSubscribeAndForget(publisher);
+        simpleSubscribeAndForget(messages);
         log.info("Finish");
     }
 }
