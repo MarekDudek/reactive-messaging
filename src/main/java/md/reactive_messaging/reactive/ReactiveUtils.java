@@ -6,9 +6,11 @@ import md.reactive_messaging.functional.Either;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Signal;
+import reactor.core.publisher.Sinks.EmitFailureHandler;
 import reactor.core.publisher.Sinks.EmitResult;
 import reactor.core.publisher.Sinks.Many;
 
+import java.util.Optional;
 import java.util.function.Consumer;
 
 import static java.util.Optional.ofNullable;
@@ -23,26 +25,30 @@ public enum ReactiveUtils
 {
     ;
 
+    public static final EmitFailureHandler ALWAYS_RETRY =
+            (signal, result) ->
+            {
+                log.error("Emit failed: signal {}, result {} - retrying", signal, result);
+                return true;
+            };
+
     public static <T> Consumer<Signal<T>> onEach(String name)
     {
         return signal -> {
             switch (signal.getType())
             {
                 case ON_NEXT:
-                    log.info("N {} - {}", name, signal.get());
+                    log.info("N {}: {}", name, signal.get());
                     break;
                 case ON_COMPLETE:
                     log.info("C {}", name);
                     break;
                 case ON_ERROR:
-                    log.info("E {} - {}", name, ofNullable(signal.getThrowable()).map(
-                            Throwable::getMessage
-                    ).orElse(
-                            "!NO MESSAGE!"
-                    ));
+                    final Optional<String> message = ofNullable(signal.getThrowable()).map(Throwable::getMessage);
+                    log.error("E {}: {}", name, message.orElse("!!! no message !!!"));
                     break;
                 default:
-                    log.warn("U! - {}", signal);
+                    log.warn("U: {}", signal);
                     break;
             }
         };
@@ -50,7 +56,9 @@ public enum ReactiveUtils
 
     public static <T> Mono<T> monitored(Mono<T> mono, String name)
     {
-        return mono.doOnEach(onEach(name)).name(name);
+        return
+                mono.doOnEach(onEach(name)).
+                        name(name);
     }
 
     public static <T> Flux<T> monitored(Flux<T> flux, String name)

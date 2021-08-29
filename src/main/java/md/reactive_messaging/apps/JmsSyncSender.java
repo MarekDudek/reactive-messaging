@@ -48,7 +48,7 @@ public final class JmsSyncSender implements Runnable
                         connectionFactory, url,
                         userName, password,
                         queueName,
-                        rangeClosed(1, 10_000).mapToObj(i -> "text-" + i)
+                        rangeClosed(1, 1_000_000).mapToObj(i -> "text-" + i)
                 );
                 sleep(sleep.toMillis());
             }

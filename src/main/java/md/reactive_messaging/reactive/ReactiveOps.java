@@ -6,13 +6,13 @@ import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
-import reactor.core.publisher.Sinks.EmitFailureHandler;
 import reactor.core.publisher.Sinks.Many;
 import reactor.core.scheduler.Scheduler;
 
 import javax.jms.*;
 import java.time.Duration;
 
+import static md.reactive_messaging.reactive.ReactiveUtils.ALWAYS_RETRY;
 import static md.reactive_messaging.reactive.ReactiveUtils.monitored;
 import static md.reactive_messaging.reactive.Reconnect.RECONNECT;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
@@ -23,7 +23,6 @@ import static reactor.util.retry.Retry.backoff;
 @Slf4j
 public class ReactiveOps
 {
-    private static final EmitFailureHandler ALWAYS_RETRY = (signal, result) -> true;
 
     public <M> Flux<M> messages
             (
@@ -35,18 +34,21 @@ public class ReactiveOps
                     long maxAttempts, Duration minBackoff, Duration maxBackoff
             )
     {
-        Scheduler connection = newSingle("connection-publisher");
+        Scheduler connectionPublisher = newSingle("connection-publisher");
         Mono<JMSContext> contextM =
-                connectionFactoryForUrl(connectionFactoryForUrl, url, connection).flatMap(factory ->
-                        contextForCredentials(factory, userName, password, connection)
+                connectionFactoryForUrl(connectionFactoryForUrl, url, connectionPublisher).flatMap(factory ->
+                        contextForCredentials(factory, userName, password, connectionPublisher)
                 );
+
         Many<Reconnect> reconnectS = Sinks.many().multicast().onBackpressureBuffer();
+
         Mono<JMSContext> exceptionListenedM =
                 contextM.
                         doOnNext(context ->
                                 setExceptionListener(context, reconnectS)
                         );
         Mono<JMSContext> monitoredExceptionListenedM = monitored(exceptionListenedM, "exception-listened-context");
+
         Mono<JMSContext> retriedM =
                 monitoredExceptionListenedM.
                         retryWhen(
@@ -56,6 +58,9 @@ public class ReactiveOps
                                         doAfterRetry(retry -> log.info("retried {}", retry))
                         );
         Mono<JMSContext> monitoredRetriedM = monitored(retriedM, "retried-context");
+
+        Scheduler reconnectsSubscriber = newSingle("reconnects-subscriber");
+        Scheduler reconnectsPublisher = newSingle("reconnects-publisher");
         Flux<JMSContext> repeatedF =
                 monitoredRetriedM.
                         repeatWhen(repeat ->
@@ -63,12 +68,13 @@ public class ReactiveOps
                                     Flux<Reconnect> reconnectF =
                                             reconnectS.
                                                     asFlux().
-                                                    subscribeOn(newSingle("reconnects-subscriber")).
-                                                    publishOn(newSingle("reconnects-publisher"));
+                                                    subscribeOn(reconnectsSubscriber).
+                                                    publishOn(reconnectsPublisher);
                                     return monitored(reconnectF, "reconnects");
                                 }
                         );
         Flux<JMSContext> monitoredRepeatedF = monitored(repeatedF, "repeated-context");
+
         Flux<JMSConsumer> consumerF =
                 monitoredRepeatedF.flatMap(context ->
                         Mono.just(
@@ -78,26 +84,42 @@ public class ReactiveOps
                         )
                 );
         Flux<JMSConsumer> monitoredQueueConsumerF = monitored(consumerF, "queue-consumer");
-        final Flux<M> messageF =
+
+        Scheduler messagesSubscriber = newSingle("messages-subscriber");
+        Scheduler messagesPublisher = newSingle("messages-publisher");
+        Flux<M> messageF =
                 monitoredQueueConsumerF.flatMap(consumer -> {
                             Many<M> messageS = Sinks.many().multicast().onBackpressureBuffer();
-                            consumer.setMessageListener(message -> {
-                                        try
-                                        {
-                                            final M converted = converter.apply(message);
-                                            messageS.emitNext(converted, ALWAYS_RETRY);
+                            try
+                            {
+                                log.info("Attempt setting message listener on consumer {}", consumer);
+                                consumer.setMessageListener(message -> {
+                                            log.trace("Message heard by consumer {}: {}", consumer, message);
+                                            try
+                                            {
+                                                M converted = converter.apply(message);
+                                                messageS.emitNext(converted, ALWAYS_RETRY);
+                                            }
+                                            catch (JMSException e)
+                                            {
+                                                log.error("Error converting message: '{}'", e.getMessage());
+                                            }
                                         }
-                                        catch (JMSException e)
-                                        {
-                                            log.error("Error extracting from message");
-                                        }
-                                    }
-                            );
-                            final Flux<M> messageHeardF = messageS.
-                                    asFlux().
-                                    subscribeOn(newSingle("messages-subscriber")).
-                                    publishOn(newSingle("messages-publisher"));
-                            return monitored(messageHeardF, "messages-heard");
+                                );
+                                log.info("Success setting message listener on consumer {}", consumer);
+                                final Flux<M> messageHeardF = messageS.
+                                        asFlux().
+                                        subscribeOn(messagesSubscriber).
+                                        publishOn(messagesPublisher);
+                                return monitored(messageHeardF, "messages-heard");
+                            }
+                            catch (JMSRuntimeException errorSetting)
+                            {
+                                log.error("Failure setting message listener on consumer {}: '{}'", consumer, errorSetting.getMessage());
+                                log.info("Requesting reconnect after error setting message listener on consumer {}", consumer);
+                                reconnectS.emitNext(RECONNECT, ALWAYS_RETRY);
+                                return Flux.error(errorSetting);
+                            }
                         }
                 );
         return monitored(messageF, "messages");
@@ -144,14 +166,50 @@ public class ReactiveOps
 
     void setExceptionListener(JMSContext context, Many<Reconnect> reconnectS)
     {
-        String name = "setting-exception-listener";
-        log.info("before {}", name);
-        context.setExceptionListener(jmsException -> {
-                    log.error("exception in context, closing - {}", jmsException.getMessage());
-                    // context.close();
-                    reconnectS.emitNext(RECONNECT, ALWAYS_RETRY);
-                }
-        );
-        log.info("after {}", name);
+        try
+        {
+            log.info("Attempt setting exception listener on context {}", context);
+            context.setExceptionListener(
+                    exceptionHeard -> {
+                        log.error("Exception heard in context {}: '{}'", context, exceptionHeard.getMessage());
+                        try
+                        {
+                            log.info("Attempt closing context after exception heard {}", context);
+                            context.close();
+                            log.info("Success closing context after exception heard {}", context);
+                        }
+                        catch (JMSRuntimeException errorClosing)
+                        {
+                            log.warn("Failure closing context after exception heard {}: '{}'", context, errorClosing.getMessage());
+                        }
+                        finally
+                        {
+                            log.info("Requesting reconnect after exception heard {}", context);
+                            reconnectS.emitNext(RECONNECT, ALWAYS_RETRY);
+                        }
+                    }
+            );
+            log.info("Success setting exception listener on context {}", context);
+        }
+        catch (JMSRuntimeException errorSetting)
+        {
+            log.error("Failure setting exception listener on context {}: '{}'", context, errorSetting.getMessage());
+            try
+            {
+                log.info("Attempt closing context after error setting exception listener {}", context);
+                context.close();
+                log.info("Success closing context after error setting exception listener {}", context);
+            }
+            catch (JMSRuntimeException errorClosing)
+            {
+                log.warn("Failure closing context after error setting exception listener {}: '{}'", context, errorClosing.getMessage());
+            }
+            finally
+            {
+                log.info("Requesting reconnect after error setting exception listener");
+                reconnectS.emitNext(RECONNECT, ALWAYS_RETRY);
+            }
+            throw errorSetting;
+        }
     }
 }
