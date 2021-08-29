@@ -92,13 +92,17 @@ public class ReactiveOps
                             Many<M> messageS = Sinks.many().multicast().onBackpressureBuffer();
                             try
                             {
-                                log.info("Attempt setting message listener on consumer {}", consumer);
+                                log.info("Attempt setting message listener on consumer");
                                 consumer.setMessageListener(message -> {
-                                            log.trace("Message heard by consumer {}: {}", consumer, message);
                                             try
                                             {
+                                                log.trace("Attempt converting message {}", message);
                                                 M converted = converter.apply(message);
+                                                log.trace("Success converting message");
+
+                                                log.trace("Attempt emitting converted {}", converted);
                                                 messageS.emitNext(converted, ALWAYS_RETRY);
+                                                log.trace("Success emitting converted");
                                             }
                                             catch (JMSException e)
                                             {
@@ -106,7 +110,7 @@ public class ReactiveOps
                                             }
                                         }
                                 );
-                                log.info("Success setting message listener on consumer {}", consumer);
+                                log.info("Success setting message listener on consumer");
                                 final Flux<M> messageHeardF = messageS.
                                         asFlux().
                                         subscribeOn(messagesSubscriber).
@@ -115,8 +119,8 @@ public class ReactiveOps
                             }
                             catch (JMSRuntimeException errorSetting)
                             {
-                                log.error("Failure setting message listener on consumer {}: '{}'", consumer, errorSetting.getMessage());
-                                log.info("Requesting reconnect after error setting message listener on consumer {}", consumer);
+                                log.error("Failure setting message listener on consumer: '{}'", errorSetting.getMessage());
+                                log.info("Requesting reconnect after error setting message listener on consumer");
                                 reconnectS.emitNext(RECONNECT, ALWAYS_RETRY);
                                 return Flux.error(errorSetting);
                             }
@@ -168,41 +172,41 @@ public class ReactiveOps
     {
         try
         {
-            log.info("Attempt setting exception listener on context {}", context);
+            log.info("Attempt setting exception listener on context");
             context.setExceptionListener(
                     exceptionHeard -> {
-                        log.error("Exception heard in context {}: '{}'", context, exceptionHeard.getMessage());
+                        log.error("Exception heard in context: '{}'", exceptionHeard.getMessage());
                         try
                         {
-                            log.info("Attempt closing context after exception heard {}", context);
+                            log.info("Attempt closing context after exception heard");
                             context.close();
-                            log.info("Success closing context after exception heard {}", context);
+                            log.info("Success closing context after exception heard");
                         }
                         catch (JMSRuntimeException errorClosing)
                         {
-                            log.warn("Failure closing context after exception heard {}: '{}'", context, errorClosing.getMessage());
+                            log.warn("Failure closing context after exception heard: '{}'", errorClosing.getMessage());
                         }
                         finally
                         {
-                            log.info("Requesting reconnect after exception heard {}", context);
+                            log.info("Requesting reconnect after exception heard");
                             reconnectS.emitNext(RECONNECT, ALWAYS_RETRY);
                         }
                     }
             );
-            log.info("Success setting exception listener on context {}", context);
+            log.info("Success setting exception listener on context");
         }
         catch (JMSRuntimeException errorSetting)
         {
-            log.error("Failure setting exception listener on context {}: '{}'", context, errorSetting.getMessage());
+            log.error("Failure setting exception listener on context: '{}'", errorSetting.getMessage());
             try
             {
-                log.info("Attempt closing context after error setting exception listener {}", context);
+                log.info("Attempt closing context after error setting exception listener");
                 context.close();
-                log.info("Success closing context after error setting exception listener {}", context);
+                log.info("Success closing context after error setting exception listener");
             }
             catch (JMSRuntimeException errorClosing)
             {
-                log.warn("Failure closing context after error setting exception listener {}: '{}'", context, errorClosing.getMessage());
+                log.warn("Failure closing context after error setting exception listener: '{}'", errorClosing.getMessage());
             }
             finally
             {

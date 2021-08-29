@@ -97,11 +97,11 @@ public enum GenericSubscribers
                                 Class<? extends Publisher> klass
                 )
         {
-            String type = klass.getSimpleName().toLowerCase();
+            char type = klass.getSimpleName().charAt(0);
             return consumer.apply(
-                    next -> log.info("{}-next '{}'", type, next),
-                    error -> log.error("{}-error '{}'", type, error.getMessage()),
-                    () -> log.info("{}-complete", type)
+                    next -> log.info("{}-N '{}'", type, next),
+                    error -> log.error("{}-E '{}'", type, error.getMessage()),
+                    () -> log.info("{}-C", type)
             );
         }
 
