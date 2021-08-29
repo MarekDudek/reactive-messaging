@@ -23,14 +23,17 @@ public final class JmsAsyncListener<T> implements Runnable
     private final ReactivePublishers publishers;
     @NonNull
     private final ReactiveOps ops;
+
     @NonNull
     private final ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory;
     @NonNull
     private final String url;
+
     @NonNull
     private final String userName;
     @NonNull
     private final String password;
+
     @NonNull
     private final String queueName;
     @NonNull
@@ -39,6 +42,8 @@ public final class JmsAsyncListener<T> implements Runnable
     private final long maxAttempts;
     @NonNull
     private final Duration minBackoff;
+    @NonNull
+    private final Duration maxBackoff;
 
     @Override
     public void run()
@@ -49,7 +54,7 @@ public final class JmsAsyncListener<T> implements Runnable
                         connectionFactory, url,
                         userName, password,
                         queueName, converter,
-                        maxAttempts, minBackoff
+                        maxAttempts, minBackoff, maxBackoff
                 );
         simpleSubscribeAndForget(messages);
         log.info("Finish");

@@ -96,7 +96,7 @@ final class ReactiveOpsTest
                         USER_NAME, PASSWORD,
                         QUEUE_NAME,
                         MessageConverters::formatStringBodyWithDeliveryDelay,
-                        MAX_ATTEMPTS, MIN_BACKOFF
+                        MAX_ATTEMPTS, MIN_BACKOFF, MAX_BACKOFF
                 );
         subscribeAndAwait(messages);
     }

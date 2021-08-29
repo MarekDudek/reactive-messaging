@@ -23,4 +23,11 @@ public class ReactivePublishersConfig
     {
         return minBackoff;
     }
+
+    @Qualifier("max-backoff")
+    @Bean
+    Duration maxBackoff(@Value("${async.receiver.max-backoff}") Duration maxBackoff)
+    {
+        return maxBackoff;
+    }
 }

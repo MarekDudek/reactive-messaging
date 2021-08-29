@@ -13,4 +13,5 @@ public enum TestTibcoEmsConfig
 
     public static final long MAX_ATTEMPTS = Long.MAX_VALUE;
     public static final Duration MIN_BACKOFF = Duration.ofMillis(100);
+    public static final Duration MAX_BACKOFF = Duration.ofSeconds(3);
 }

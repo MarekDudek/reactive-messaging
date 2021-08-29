@@ -84,7 +84,8 @@ public class ReactiveMessagingApplication
                     @Qualifier("password") String password,
                     @Qualifier("queue-name") String queueName,
                     @Qualifier("max-attempts") long maxAttempts,
-                    @Qualifier("min-backoff") Duration minBackoff
+                    @Qualifier("min-backoff") Duration minBackoff,
+                    @Qualifier("max-backoff") Duration maxBackoff
             )
     {
         return args ->
@@ -97,7 +98,7 @@ public class ReactiveMessagingApplication
                                         userName(userName).password(password).
                                         queueName(queueName).
                                         converter(MessageConverters::formatStringBodyWithDeliveryDelay).
-                                        maxAttempts(maxAttempts).minBackoff(minBackoff).
+                                        maxAttempts(maxAttempts).minBackoff(minBackoff).maxBackoff(maxBackoff).
                                         build(),
                                 JmsAsyncListener.class.getName()
                         )

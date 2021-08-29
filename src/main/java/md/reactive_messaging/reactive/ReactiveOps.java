@@ -32,7 +32,7 @@ public class ReactiveOps
                     String userName, String password,
                     String queueName,
                     ThrowingFunction<Message, M, JMSException> converter,
-                    long maxAttempts, Duration minBackoff
+                    long maxAttempts, Duration minBackoff, Duration maxBackoff
             )
     {
         Scheduler connection = newSingle("connection-publisher");
@@ -51,6 +51,7 @@ public class ReactiveOps
                 monitoredExceptionListenedM.
                         retryWhen(
                                 backoff(maxAttempts, minBackoff).
+                                        maxBackoff(maxBackoff).
                                         doBeforeRetry(retry -> log.info("retrying {}", retry)).
                                         doAfterRetry(retry -> log.info("retried {}", retry))
                         );
