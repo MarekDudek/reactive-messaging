@@ -9,7 +9,6 @@ import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSException;
 import java.time.Duration;
-import java.util.function.Function;
 
 import static java.lang.Thread.sleep;
 import static java.util.stream.IntStream.rangeClosed;
@@ -43,13 +42,15 @@ public final class JmsSyncSender implements Runnable
         {
             try
             {
-                log.info("Sending text message");
+                final int count = 15_000;
+                log.info("Attempt sending text message, count: {}", count);
                 manager.sendTextMessages(
                         connectionFactory, url,
                         userName, password,
                         queueName,
-                        rangeClosed(1, 15_000).mapToObj(i -> "text-" + i)
+                        rangeClosed(1, count).mapToObj(i -> "text-" + i)
                 );
+                log.info("Success sending text message");
                 sleep(sleep.toMillis());
             }
             catch (InterruptedException e)
