@@ -81,7 +81,9 @@ public class ReactiveOps
                                     Mono.fromCallable(() ->
                                             context.createQueue(queueName)
                                     );
-                            final Mono<Queue> queueSubscribedM = monitored(queueWrapperM, "queue-wrapper").subscribeOn(boundedElastic());
+                            final Mono<Queue> queueSubscribedM =
+                                    monitored(queueWrapperM, "queue-wrapper").
+                                            subscribeOn(boundedElastic());
                             final Mono<Queue> queueM = monitored(queueSubscribedM, "queue-subscribed");
                             return queueM.flatMap(queue ->
                                     {
@@ -89,7 +91,9 @@ public class ReactiveOps
                                                 Mono.fromCallable(() ->
                                                         context.createConsumer(queue)
                                                 );
-                                        final Mono<JMSConsumer> consumerSubscribedM = monitored(consumerWrapperM, "consumer-wrapper").subscribeOn(boundedElastic());
+                                        final Mono<JMSConsumer> consumerSubscribedM =
+                                                monitored(consumerWrapperM, "consumer-wrapper").
+                                                        subscribeOn(boundedElastic());
                                         return monitored(consumerSubscribedM, "consumer-subscribed");
                                     }
                             );
