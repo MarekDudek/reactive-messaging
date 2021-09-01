@@ -65,8 +65,8 @@ public enum ReactiveUtils
     {
         return
                 mono.
-                        doOnEach(genericOnEach(name)).
                         doOnSubscribe(genericOnSubscribe(name)).
+                        doOnEach(genericOnEach(name)).
                         name(name);
     }
 
@@ -74,8 +74,8 @@ public enum ReactiveUtils
     {
         return
                 flux.
-                        doOnEach(genericOnEach(name)).
                         doOnSubscribe(genericOnSubscribe(name)).
+                        doOnEach(genericOnEach(name)).
                         name(name);
     }
 
