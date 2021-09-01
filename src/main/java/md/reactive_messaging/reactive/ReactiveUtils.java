@@ -3,6 +3,7 @@ package md.reactive_messaging.reactive;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
+import org.reactivestreams.Subscription;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Signal;
@@ -32,7 +33,7 @@ public enum ReactiveUtils
                 return true;
             };
 
-    public static <T> Consumer<Signal<T>> onEach(String name)
+    public static <T> Consumer<Signal<T>> genericOnEach(String name)
     {
         return signal -> {
             switch (signal.getType())
@@ -54,16 +55,28 @@ public enum ReactiveUtils
         };
     }
 
+    public static Consumer<Subscription> genericOnSubscribe(String name)
+    {
+        return subscription ->
+                log.info("S {}: {}", name, subscription);
+    }
+
     public static <T> Mono<T> monitored(Mono<T> mono, String name)
     {
         return
-                mono.doOnEach(onEach(name)).
+                mono.
+                        doOnEach(genericOnEach(name)).
+                        doOnSubscribe(genericOnSubscribe(name)).
                         name(name);
     }
 
     public static <T> Flux<T> monitored(Flux<T> flux, String name)
     {
-        return flux.doOnEach(onEach(name)).name(name);
+        return
+                flux.
+                        doOnEach(genericOnEach(name)).
+                        doOnSubscribe(genericOnSubscribe(name)).
+                        name(name);
     }
 
     @Deprecated

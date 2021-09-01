@@ -23,7 +23,6 @@ import static reactor.util.retry.Retry.backoff;
 @Slf4j
 public class ReactiveOps
 {
-
     public <M> Flux<M> messages
             (
                     ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactoryForUrl,
@@ -77,11 +76,24 @@ public class ReactiveOps
 
         Flux<JMSConsumer> consumerF =
                 monitoredRepeatedF.flatMap(context ->
-                        Mono.just(
-                                context.createQueue(queueName)
-                        ).flatMap(queue ->
-                                Mono.just(context.createConsumer(queue))
-                        )
+                        {
+                            final Mono<Queue> queueWrapperM =
+                                    Mono.fromCallable(() ->
+                                            context.createQueue(queueName)
+                                    );
+                            final Mono<Queue> queueSubscribedM = monitored(queueWrapperM, "queue-wrapper").subscribeOn(boundedElastic());
+                            final Mono<Queue> queueM = monitored(queueSubscribedM, "queue-subscribed");
+                            return queueM.flatMap(queue ->
+                                    {
+                                        final Mono<JMSConsumer> consumerWrapperM =
+                                                Mono.fromCallable(() ->
+                                                        context.createConsumer(queue)
+                                                );
+                                        final Mono<JMSConsumer> consumerSubscribedM = monitored(consumerWrapperM, "consumer-wrapper").subscribeOn(boundedElastic());
+                                        return monitored(consumerSubscribedM, "consumer-subscribed");
+                                    }
+                            );
+                        }
                 );
         Flux<JMSConsumer> monitoredQueueConsumerF = monitored(consumerF, "queue-consumer");
 

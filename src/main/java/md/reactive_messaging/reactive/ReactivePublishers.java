@@ -68,13 +68,13 @@ public class ReactivePublishers
                 ops.connectionFactoryForUrlChecked(connectionFactory, url).<Mono<ConnectionFactory>>apply(
                         Mono::error,
                         Mono::just
-                ).doOnEach(onEach("factory")).name("factory"
+                ).doOnEach(genericOnEach("factory")).name("factory"
                 ).cache().flatMap(factory ->
                         ops.createContext(factory, userName, password).apply(
                                 Mono::error,
                                 Mono::just
                         )
-                ).doOnEach(onEach("context")).name("context");
+                ).doOnEach(genericOnEach("context")).name("context");
     }
 
     private Flux<JMSContext> retriedAndRepeated
@@ -111,12 +111,12 @@ public class ReactivePublishers
                                 ).orElse(
                                         Mono.just(context)
                                 )
-                        ).doOnEach(onEach("retried")).name("retried"
+                        ).doOnEach(genericOnEach("retried")).name("retried"
                         ).repeatWhen(
                                 repeat ->
                                         reconnects.asFlux().
-                                                doOnEach(onEach("reconnect")).name("reconnect")
-                        ).doOnEach(onEach("repeated")).name("repeated");
+                                                doOnEach(genericOnEach("reconnect")).name("reconnect")
+                        ).doOnEach(genericOnEach("repeated")).name("repeated");
     }
 
     private Flux<JMSConsumer> queueAndConsumer
@@ -145,7 +145,7 @@ public class ReactivePublishers
                                 },
                                 Flux::just
                         )
-                ).doOnEach(onEach("consumers")).name("consumers");
+                ).doOnEach(genericOnEach("consumers")).name("consumers");
     }
 
     private <T> Flux<T> bodiesReceived
@@ -162,7 +162,7 @@ public class ReactivePublishers
                                         sink::next
                                 )
                         )
-                ).doOnEach(onEach("bodies")).name("bodies");
+                ).doOnEach(genericOnEach("bodies")).name("bodies");
     }
 
     private <T> Flux<T> heardInConsumer
@@ -190,9 +190,9 @@ public class ReactivePublishers
                                             }
                                     ).orElse(
                                             sink.asFlux().
-                                                    doOnEach(onEach("converted")).name("converted")
+                                                    doOnEach(genericOnEach("converted")).name("converted")
                                     );
                         }
-                ).doOnEach(onEach("published")).name("published");
+                ).doOnEach(genericOnEach("published")).name("published");
     }
 }
