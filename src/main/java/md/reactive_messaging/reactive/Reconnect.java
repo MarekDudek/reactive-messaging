@@ -2,5 +2,10 @@ package md.reactive_messaging.reactive;
 
 public enum Reconnect
 {
-    RECONNECT
+    @Deprecated
+    RECONNECT,
+    AFTER_CREATING_CONTEXT_FAILED,
+    AFTER_SETTING_EXCEPTION_LISTENER_FAILED,
+    AFTER_SETTING_MESSAGE_LISTENER_FAILED,
+    AFTER_EXCEPTION_IN_CONTEXT_HEARD
 }

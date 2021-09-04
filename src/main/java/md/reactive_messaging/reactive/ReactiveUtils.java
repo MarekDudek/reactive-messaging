@@ -4,6 +4,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
 import org.reactivestreams.Subscription;
+import reactor.core.Exceptions;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Signal;
@@ -12,11 +13,14 @@ import reactor.core.publisher.Sinks.EmitResult;
 import reactor.core.publisher.Sinks.Many;
 
 import java.util.Optional;
+import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 
 import static java.util.Optional.ofNullable;
 import static md.reactive_messaging.functional.Either.right;
 import static md.reactive_messaging.functional.Functional.error;
+import static md.reactive_messaging.functional.Functional.ignore;
+import static md.reactive_messaging.functional.LoggingFunctional.logCallable;
 import static md.reactive_messaging.reactive.Reconnect.RECONNECT;
 import static reactor.core.publisher.Sinks.EmitResult.OK;
 
@@ -124,5 +128,25 @@ public enum ReactiveUtils
                 success ->
                         log.trace("Emitted")
         );
+    }
+
+    public static <T> Mono<T> fromCallable(Callable<T> callable, Consumer<Throwable> listener, String name)
+    {
+        return Mono.fromCallable(() -> {
+                    try
+                    {
+                        return logCallable(callable, listener, name);
+                    }
+                    catch (Throwable e)
+                    {
+                        throw Exceptions.bubble(e);
+                    }
+                }
+        );
+    }
+
+    public static <T> Mono<T> fromCallable(Callable<T> callable, String name)
+    {
+        return fromCallable(callable, ignore(), name);
     }
 }
