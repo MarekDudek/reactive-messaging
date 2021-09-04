@@ -5,6 +5,8 @@ import javax.jms.Message;
 import javax.jms.TextMessage;
 import java.time.Duration;
 import java.time.Instant;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static java.lang.String.format;
 import static java.time.Duration.between;
@@ -31,5 +33,15 @@ public enum MessageConverters
         final Instant delivery = ofEpochMilli(message.getJMSDeliveryTime());
         final Duration delay = between(delivery, now());
         return format("RECEIVED %s (after %s)", body, delay);
+    }
+
+    public static int extractTextNumber(String string) {
+        final Matcher matcher = Pattern.compile("RECEIVED text-(\\d+) \\(after ([^\\)]*)\\)").matcher(string);
+        if (matcher.matches()) {
+            final String id = matcher.group(1);
+            return Integer.parseInt(id);
+        } else {
+            throw new RuntimeException("Text not matched");
+        }
     }
 }

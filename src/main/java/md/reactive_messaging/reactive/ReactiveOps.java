@@ -13,7 +13,8 @@ import javax.jms.*;
 import java.time.Duration;
 
 import static md.reactive_messaging.functional.LoggingFunctional.logRunnable;
-import static md.reactive_messaging.reactive.ReactiveUtils.*;
+import static md.reactive_messaging.reactive.ReactiveUtils.ALWAYS_RETRY;
+import static md.reactive_messaging.reactive.ReactiveUtils.monitored;
 import static md.reactive_messaging.reactive.Reconnect.*;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
 import static reactor.core.scheduler.Schedulers.newSingle;
@@ -33,38 +34,34 @@ public class ReactiveOps
                     long maxAttempts, Duration minBackoff, Duration maxBackoff
             )
     {
-        Scheduler connectionScheduler = boundedElastic();
+        Scheduler connectionPublisher = newSingle("connection-publisher");
 
         Mono<ConnectionFactory> connectionFactoryM =
-                fromCallable(
-                        () ->
-                                connectionFactoryForUrl.apply(url),
-                        "Creating connection factory for URL"
-                );
-        Mono<ConnectionFactory> scheduledConnectionFactoryM =
                 monitored(
-                        connectionFactoryM.
-                                subscribeOn(connectionScheduler).publishOn(connectionScheduler),
+                        Mono.fromCallable(() ->
+                                        connectionFactoryForUrl.apply(url)
+                                ).
+                                subscribeOn(boundedElastic()).
+                                publishOn(connectionPublisher).
+                                cache(),
                         "Connection factory"
                 );
 
         Many<Reconnect> reconnectS = Sinks.many().multicast().onBackpressureBuffer();
 
         Mono<JMSContext> contextM =
-                scheduledConnectionFactoryM.flatMap(factory ->
-                        contextForCredentials(factory, userName, password, reconnectS)
-                );
-        Mono<JMSContext> scheduledContextM =
                 monitored(
-                        contextM.
-                                cache().
-                                subscribeOn(connectionScheduler).publishOn(connectionScheduler),
+                        connectionFactoryM.flatMap(factory ->
+                                        contextForCredentials(factory, userName, password, reconnectS)
+                                ).
+                                subscribeOn(boundedElastic()).
+                                publishOn(connectionPublisher),
                         "Context"
                 );
 
         Mono<JMSContext> retriedM =
                 monitored(
-                        scheduledContextM.
+                        contextM.
                                 retryWhen(backoff(maxAttempts, minBackoff).maxBackoff(maxBackoff).
                                         doBeforeRetry(retry -> log.info("Retrying {}", retry)).
                                         doAfterRetry(retry -> log.info("Retried {}", retry))
@@ -72,45 +69,54 @@ public class ReactiveOps
                         "Possibly retried context"
                 );
 
-        Flux<Reconnect> reconnectF =
-                monitored(
-                        reconnectS.
-                                asFlux().
-                                subscribeOn(connectionScheduler).
-                                publishOn(connectionScheduler),
-                        "Reconnect request"
-                );
+        Scheduler reconnectsSubscriber = newSingle("reconnects-subscriber");
+        Scheduler reconnectsPublisher = newSingle("reconnects-publisher");
 
         Flux<JMSContext> repeatedF =
                 monitored(
                         retriedM.
-                                repeatWhen(repeat -> reconnectF),
+                                repeatWhen(repeat ->
+                                        monitored(
+                                                reconnectS.
+                                                        asFlux().
+                                                        subscribeOn(reconnectsSubscriber).
+                                                        publishOn(reconnectsPublisher),
+                                                "Reconnect request"
+                                        )),
                         "Possibly repeated context"
                 );
 
         Flux<JMSConsumer> consumerF =
-                repeatedF.flatMap(context ->
-                        fromCallable(
-                                () -> {
-                                    Queue queue = context.createQueue(queueName);
-                                    return context.createConsumer(queue);
-                                },
-                                "Creating queue and consumer"
-                        )
-                );
-        Flux<JMSConsumer> scheduledConsumer =
                 monitored(
-                        consumerF.
-                                subscribeOn(connectionScheduler).
-                                publishOn(connectionScheduler),
+                        repeatedF.flatMap(context ->
+                                Mono.fromCallable(
+                                                () -> {
+                                                    Queue queue = context.createQueue(queueName);
+                                                    return context.createConsumer(queue);
+                                                }
+                                        ).
+                                        subscribeOn(reconnectsSubscriber).
+                                        publishOn(reconnectsPublisher)
+                        ),
                         "Consumer of queue"
                 );
 
-        Scheduler messageScheduler = newSingle("Messages");
+        Scheduler messageSubscriber = newSingle("Message Subscriber");
+        Scheduler messagePublisher = newSingle("Message Publisher");
 
-        Flux<M> messageF =
-                monitored(scheduledConsumer, "queue-consumer").flatMap(consumer -> {
-                            Many<M> messageS = Sinks.many().multicast().onBackpressureBuffer();
+        Many<M> messageS = Sinks.many().multicast().onBackpressureBuffer();
+
+        Flux<M> messageHeardF =
+                monitored(
+                        messageS.
+                                asFlux().
+                                subscribeOn(messageSubscriber).
+                                publishOn(messagePublisher),
+                        "Messages heard"
+                );
+
+        return monitored(
+                consumerF.flatMap(consumer -> {
                             try
                             {
                                 log.info("Attempt setting message listener on consumer");
@@ -132,11 +138,7 @@ public class ReactiveOps
                                         }
                                 );
                                 log.info("Success setting message listener on consumer");
-                                Flux<M> messageHeardF = messageS.
-                                        asFlux().
-                                        subscribeOn(messageScheduler).
-                                        publishOn(messageScheduler);
-                                return monitored(messageHeardF, "messages-heard");
+                                return messageHeardF;
                             }
                             catch (JMSRuntimeException errorSetting)
                             {
@@ -145,8 +147,9 @@ public class ReactiveOps
                                 return Flux.error(errorSetting);
                             }
                         }
-                );
-        return monitored(messageF, "messages");
+                ),
+                "Messages emitted"
+        );
     }
 
     Mono<JMSContext> contextForCredentials
@@ -156,12 +159,13 @@ public class ReactiveOps
                     Many<Reconnect> reconnectS
             )
     {
-        return fromCallable(
+        return Mono.fromCallable(
                 () -> {
                     JMSContext context;
                     try
                     {
                         context = factory.createContext(userName, password);
+                        //context.setAutoStart(false);
                     }
                     catch (Throwable t)
                     {
@@ -174,10 +178,9 @@ public class ReactiveOps
                                     log.error("Exception heard in context: '{}'", exceptionHeard.getMessage());
                                     logRunnable(
                                             context::close,
-                                            throwable ->
-                                                    reconnectS.emitNext(AFTER_EXCEPTION_IN_CONTEXT_HEARD, ALWAYS_RETRY),
                                             "Closing context after error heard"
                                     );
+                                    reconnectS.emitNext(AFTER_EXCEPTION_IN_CONTEXT_HEARD, ALWAYS_RETRY);
                                 }
                         );
                     }
@@ -185,17 +188,13 @@ public class ReactiveOps
                     {
                         logRunnable(
                                 context::close,
-                                throwable ->
-                                        reconnectS.emitNext(AFTER_SETTING_EXCEPTION_LISTENER_FAILED, ALWAYS_RETRY),
                                 "Closing context after setting exception listener failed"
                         );
+                        reconnectS.emitNext(AFTER_SETTING_EXCEPTION_LISTENER_FAILED, ALWAYS_RETRY);
                         throw t;
                     }
                     return context;
-                },
-                throwable ->
-                        log.error("Error creating context or setting exception listener", throwable),
-                "Creating context for credentials and setting exception listener"
+                }
         );
     }
 }
