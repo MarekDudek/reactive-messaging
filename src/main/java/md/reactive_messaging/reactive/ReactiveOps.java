@@ -49,10 +49,17 @@ public class ReactiveOps
         );
 
         Many<Reconnect> reconnectS = Sinks.many().multicast().onBackpressureBuffer();
+        Flux<Reconnect> reconnectF = monitored(
+                reconnectS.
+                        asFlux().
+                        subscribeOn(connectionPublisher).
+                        publishOn(connectionPublisher),
+                "Reconnect request"
+        );
 
         Mono<JMSConsumer> consumerM = monitored(
                 connectionFactoryM.flatMap(factory ->
-                                contextAndAsyncListener(factory, userName, password, queueName, reconnectS)
+                                contextAndSyncReceiver(factory, userName, password, queueName, reconnectS)
                         ).
                         subscribeOn(connectionSubscriber).
                         publishOn(connectionPublisher),
@@ -68,17 +75,6 @@ public class ReactiveOps
                 "Possibly retried context"
         );
 
-        Scheduler reconnectsSubscriber = newSingle("reconnects-subscriber");
-        Scheduler reconnectsPublisher = newSingle("reconnects-publisher");
-
-        Flux<Reconnect> reconnectF = monitored(
-                reconnectS.
-                        asFlux().
-                        subscribeOn(connectionSubscriber).
-                        publishOn(connectionSubscriber),
-                "Reconnect request"
-        );
-
         Flux<JMSConsumer> repeatedF = monitored(
                 retriedM.
                         repeatWhen(repeat -> reconnectF),
@@ -87,7 +83,6 @@ public class ReactiveOps
 
         Scheduler messageSubscriber = newSingle("Message Subscriber");
         Scheduler messagePublisher = newSingle("Message Publisher");
-
 
         return monitored(
                 repeatedF.flatMap(consumer ->
@@ -111,7 +106,7 @@ public class ReactiveOps
         );
     }
 
-    <M> Mono<JMSConsumer> contextAndAsyncListener
+    Mono<JMSConsumer> contextAndSyncReceiver
             (
                     ConnectionFactory factory,
                     String userName, String password,

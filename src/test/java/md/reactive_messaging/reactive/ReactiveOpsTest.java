@@ -73,7 +73,7 @@ final class ReactiveOpsTest
                                 ((ThrowingFunction<String, ConnectionFactory, JMSException>) TibjmsConnectionFactory::new).apply(URL),
                         ignore(), "Creating connection factory for URL"
                 ).flatMap(factory ->
-                        OPS.contextAndAsyncListener(factory, USER_NAME, PASSWORD, null, null)
+                        OPS.contextAndSyncReceiver(factory, USER_NAME, PASSWORD, null, null)
                 );
 
         StepVerifier.create(contextM).
@@ -92,7 +92,7 @@ final class ReactiveOpsTest
                                 ((ThrowingFunction<String, ConnectionFactory, JMSException>) TibjmsConnectionFactory::new).apply(URL),
                         ignore(), "Creating connection factory for URL"
                 ).flatMap(factory ->
-                        OPS.contextAndAsyncListener(factory, USER_NAME, PASSWORD, null, null)
+                        OPS.contextAndSyncReceiver(factory, USER_NAME, PASSWORD, null, null)
                 );
 
         StepVerifier.create(contextM).
