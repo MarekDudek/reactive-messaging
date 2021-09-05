@@ -7,6 +7,8 @@ import java.util.concurrent.Callable;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
 
+import static md.reactive_messaging.functional.Functional.ignore;
+
 @Slf4j
 public enum LoggingFunctional
 {
@@ -43,6 +45,11 @@ public enum LoggingFunctional
             listener.accept(t);
             throw t;
         }
+    }
+
+    public static void logRunnable(@Nonnull Runnable runnable, @Nonnull String name)
+    {
+        logRunnable(runnable, ignore(), name);
     }
 
     public static <T> T logCallable(@Nonnull Callable<T> callable, @Nonnull Consumer<Throwable> listener, @Nonnull String name) throws Throwable

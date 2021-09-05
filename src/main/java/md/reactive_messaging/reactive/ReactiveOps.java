@@ -36,142 +36,95 @@ public class ReactiveOps
     {
         Scheduler connectionPublisher = newSingle("connection-publisher");
 
-        Mono<ConnectionFactory> connectionFactoryM =
-                monitored(
-                        Mono.fromCallable(() ->
-                                        connectionFactoryForUrl.apply(url)
-                                ).
-                                subscribeOn(boundedElastic()).
-                                publishOn(connectionPublisher).
-                                cache(),
-                        "Connection factory"
-                );
+        Mono<ConnectionFactory> connectionFactoryM = monitored(
+                Mono.fromCallable(() ->
+                                connectionFactoryForUrl.apply(url)
+                        ).
+                        subscribeOn(boundedElastic()).
+                        publishOn(connectionPublisher).
+                        cache(),
+                "Connection factory"
+        );
 
         Many<Reconnect> reconnectS = Sinks.many().multicast().onBackpressureBuffer();
+        Many<M> messageS = Sinks.many().multicast().onBackpressureBuffer();
 
-        Mono<JMSContext> contextM =
-                monitored(
-                        connectionFactoryM.flatMap(factory ->
-                                        contextForCredentials(factory, userName, password, reconnectS)
-                                ).
-                                subscribeOn(boundedElastic()).
-                                publishOn(connectionPublisher),
-                        "Context"
-                );
+        Mono<JMSConsumer> consumerM = monitored(
+                connectionFactoryM.flatMap(factory ->
+                                contextForCredentialsQueueAndConsumer(factory, userName, password, queueName, converter, reconnectS, messageS)
+                        ).
+                        subscribeOn(boundedElastic()).
+                        publishOn(connectionPublisher),
+                "Context"
+        );
 
-        Mono<JMSContext> retriedM =
-                monitored(
-                        contextM.
-                                retryWhen(backoff(maxAttempts, minBackoff).maxBackoff(maxBackoff).
-                                        doBeforeRetry(retry -> log.info("Retrying {}", retry)).
-                                        doAfterRetry(retry -> log.info("Retried {}", retry))
-                                ),
-                        "Possibly retried context"
-                );
+        Mono<JMSConsumer> retriedM = monitored(
+                consumerM.
+                        retryWhen(backoff(maxAttempts, minBackoff).maxBackoff(maxBackoff).
+                                doBeforeRetry(retry -> log.info("Retrying {}", retry)).
+                                doAfterRetry(retry -> log.info("Retried {}", retry))
+                        ),
+                "Possibly retried context"
+        );
 
         Scheduler reconnectsSubscriber = newSingle("reconnects-subscriber");
         Scheduler reconnectsPublisher = newSingle("reconnects-publisher");
 
-        Flux<JMSContext> repeatedF =
-                monitored(
-                        retriedM.
-                                repeatWhen(repeat ->
-                                        monitored(
-                                                reconnectS.
-                                                        asFlux().
-                                                        subscribeOn(reconnectsSubscriber).
-                                                        publishOn(reconnectsPublisher),
-                                                "Reconnect request"
-                                        )),
-                        "Possibly repeated context"
-                );
-
-        Flux<JMSConsumer> consumerF =
-                monitored(
-                        repeatedF.flatMap(context ->
-                                Mono.fromCallable(
-                                                () -> {
-                                                    Queue queue = context.createQueue(queueName);
-                                                    return context.createConsumer(queue);
-                                                }
-                                        ).
+        Flux<JMSConsumer> repeatedF = monitored(
+                retriedM.
+                        repeatWhen(repeat -> monitored(
+                                reconnectS.
+                                        asFlux().
                                         subscribeOn(reconnectsSubscriber).
-                                        publishOn(reconnectsPublisher)
-                        ),
-                        "Consumer of queue"
-                );
+                                        publishOn(reconnectsPublisher),
+                                "Reconnect request"
+                        )),
+                "Possibly repeated context"
+        );
+
 
         Scheduler messageSubscriber = newSingle("Message Subscriber");
         Scheduler messagePublisher = newSingle("Message Publisher");
 
-        Many<M> messageS = Sinks.many().multicast().onBackpressureBuffer();
 
-        Flux<M> messageHeardF =
-                monitored(
-                        messageS.
-                                asFlux().
-                                subscribeOn(messageSubscriber).
-                                publishOn(messagePublisher),
-                        "Messages heard"
-                );
+        Flux<M> messageHeardF = monitored(
+                messageS.
+                        asFlux().
+                        subscribeOn(messageSubscriber).
+                        publishOn(messagePublisher),
+                "Messages heard"
+        );
 
         return monitored(
-                consumerF.flatMap(consumer -> {
-                            try
-                            {
-                                log.info("Attempt setting message listener on consumer");
-                                consumer.setMessageListener(message -> {
-                                            try
-                                            {
-                                                log.trace("Attempt converting message {}", message);
-                                                M converted = converter.apply(message);
-                                                log.trace("Success converting message");
-
-                                                log.trace("Attempt emitting converted {}", converted);
-                                                messageS.emitNext(converted, ALWAYS_RETRY);
-                                                log.trace("Success emitting converted");
-                                            }
-                                            catch (JMSException e)
-                                            {
-                                                log.error("Error converting message: '{}'", e.getMessage());
-                                            }
-                                        }
-                                );
-                                log.info("Success setting message listener on consumer");
-                                return messageHeardF;
-                            }
-                            catch (JMSRuntimeException errorSetting)
-                            {
-                                log.error("Failure setting message listener on consumer: '{}'", errorSetting.getMessage());
-                                reconnectS.emitNext(AFTER_SETTING_MESSAGE_LISTENER_FAILED, ALWAYS_RETRY);
-                                return Flux.error(errorSetting);
-                            }
-                        }
-                ),
+                repeatedF.flatMap(consumer -> messageHeardF),
                 "Messages emitted"
         );
     }
 
-    Mono<JMSContext> contextForCredentials
+    <M> Mono<JMSConsumer> contextForCredentialsQueueAndConsumer
             (
                     ConnectionFactory factory,
                     String userName, String password,
-                    Many<Reconnect> reconnectS
+                    String queueName,
+                    ThrowingFunction<Message, M, JMSException> converter,
+                    Many<Reconnect> reconnectS, Many<M> messageS
             )
     {
         return Mono.fromCallable(
                 () -> {
+
                     JMSContext context;
                     try
                     {
                         context = factory.createContext(userName, password);
-                        //context.setAutoStart(false);
+                        context.setAutoStart(false);
                     }
                     catch (Throwable t)
                     {
-                        reconnectS.emitNext(AFTER_CREATING_CONTEXT_FAILED, ALWAYS_RETRY);
+                        reconnectS.emitNext(CREATING_CONTEXT_FAILED, ALWAYS_RETRY);
                         throw t;
                     }
+
                     try
                     {
                         context.setExceptionListener(exceptionHeard -> {
@@ -180,7 +133,7 @@ public class ReactiveOps
                                             context::close,
                                             "Closing context after error heard"
                                     );
-                                    reconnectS.emitNext(AFTER_EXCEPTION_IN_CONTEXT_HEARD, ALWAYS_RETRY);
+                                    reconnectS.emitNext(EXCEPTION_IN_CONTEXT_HEARD, ALWAYS_RETRY);
                                 }
                         );
                     }
@@ -190,10 +143,84 @@ public class ReactiveOps
                                 context::close,
                                 "Closing context after setting exception listener failed"
                         );
-                        reconnectS.emitNext(AFTER_SETTING_EXCEPTION_LISTENER_FAILED, ALWAYS_RETRY);
+                        reconnectS.emitNext(SETTING_EXCEPTION_LISTENER_FAILED, ALWAYS_RETRY);
                         throw t;
                     }
-                    return context;
+
+                    Queue queue;
+                    try
+                    {
+                        queue = context.createQueue(queueName);
+                    }
+                    catch (Throwable t)
+                    {
+                        logRunnable(
+                                context::close,
+                                "Closing context after creating queue failed"
+                        );
+                        reconnectS.emitNext(CREATING_QUEUE_FAILED, ALWAYS_RETRY);
+                        throw t;
+                    }
+
+                    JMSConsumer consumer;
+                    try
+                    {
+                        consumer = context.createConsumer(queue);
+                    }
+                    catch (Throwable t)
+                    {
+                        logRunnable(
+                                context::close,
+                                "Closing context after creating consumer failed"
+                        );
+                        reconnectS.emitNext(CREATING_CONSUMER_FAILED, ALWAYS_RETRY);
+                        throw t;
+                    }
+
+                    try
+                    {
+                        consumer.setMessageListener(message -> {
+                                    try
+                                    {
+                                        log.trace("Attempt converting message {}", message);
+                                        M converted = converter.apply(message);
+                                        log.trace("Success converting message");
+                                        log.trace("Attempt emitting converted {}", converted);
+                                        messageS.emitNext(converted, ALWAYS_RETRY);
+                                        log.trace("Success emitting converted");
+                                    }
+                                    catch (JMSException e)
+                                    {
+                                        log.error("Error converting message: '{}'", e.getMessage());
+                                    }
+                                }
+                        );
+                    }
+                    catch (Throwable t)
+                    {
+                        logRunnable(
+                                context::close,
+                                "Closing context after setting message listener failed"
+                        );
+                        reconnectS.emitNext(SETTING_MESSAGE_LISTENER, ALWAYS_RETRY);
+                        throw t;
+                    }
+
+                    try
+                    {
+                        context.start();
+                    }
+                    catch (Throwable t)
+                    {
+                        logRunnable(
+                                context::close,
+                                "Closing context after starting context failed"
+                        );
+                        reconnectS.emitNext(STARTING_CONTEXT, ALWAYS_RETRY);
+                        throw t;
+                    }
+
+                    return consumer;
                 }
         );
     }

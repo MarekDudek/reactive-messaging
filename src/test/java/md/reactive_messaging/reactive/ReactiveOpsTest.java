@@ -12,7 +12,7 @@ import reactor.core.scheduler.Scheduler;
 import reactor.test.StepVerifier;
 
 import javax.jms.ConnectionFactory;
-import javax.jms.JMSContext;
+import javax.jms.JMSConsumer;
 import javax.jms.JMSException;
 
 import static md.reactive_messaging.TestTibcoEmsConfig.*;
@@ -66,12 +66,12 @@ final class ReactiveOpsTest
     @Test
     void context_broker_up()
     {
-        Mono<JMSContext> contextM =
+        Mono<JMSConsumer> contextM =
                 fromCallable(() ->
                                 ((ThrowingFunction<String, ConnectionFactory, JMSException>) TibjmsConnectionFactory::new).apply(URL),
                         ignore(), "Creating connection factory for URL"
                 ).flatMap(factory ->
-                        OPS.contextForCredentials(factory, USER_NAME, PASSWORD, null)
+                        OPS.contextForCredentialsQueueAndConsumer(factory, USER_NAME, PASSWORD, null, null, null, null)
                 );
 
         StepVerifier.create(contextM).
@@ -85,12 +85,12 @@ final class ReactiveOpsTest
     @Test
     void context__broker_down()
     {
-        Mono<JMSContext> contextM =
+        Mono<JMSConsumer> contextM =
                 fromCallable(() ->
                                 ((ThrowingFunction<String, ConnectionFactory, JMSException>) TibjmsConnectionFactory::new).apply(URL),
                         ignore(), "Creating connection factory for URL"
                 ).flatMap(factory ->
-                        OPS.contextForCredentials(factory, USER_NAME, PASSWORD, null)
+                        OPS.contextForCredentialsQueueAndConsumer(factory, USER_NAME, PASSWORD, null, null, null, null)
                 );
 
         StepVerifier.create(contextM).

@@ -17,6 +17,8 @@ import static md.reactive_messaging.Profiles.TIBCO;
 @Profile(TIBCO)
 public class TibcoConfig
 {
+    public static final String SEQUENTIAL_ID = "sequential-id";
+
     @Bean
     ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory()
     {

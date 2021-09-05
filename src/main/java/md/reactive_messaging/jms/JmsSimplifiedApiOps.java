@@ -2,6 +2,7 @@ package md.reactive_messaging.jms;
 
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
+import md.reactive_messaging.functional.throwing.ThrowingBiConsumer;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 
 import javax.jms.*;
@@ -61,6 +62,11 @@ public class JmsSimplifiedApiOps
         return biConsumer(producer::send, destination, text, "send-text-message", log::trace, ERROR);
     }
 
+    public Optional<JMSRuntimeException> sendTextMessage(JMSProducer producer, Destination destination, TextMessage message)
+    {
+        return biConsumer(producer::send, destination, message, "send-text-message", log::trace, ERROR);
+    }
+
     public Either<JMSRuntimeException, JMSConsumer> createConsumer(JMSContext context, Queue queue)
     {
         return function(context::createConsumer, queue, "create-consumer", log::debug, ERROR);
@@ -79,5 +85,10 @@ public class JmsSimplifiedApiOps
     public <R> Either<JMSException, R> applyToMessage(Message message, ThrowingFunction<Message, R, JMSException> function)
     {
         return throwingFunction(function, message, "apply-to-message", log::trace, log::error);
+    }
+
+    public static <T> Optional<JMSException> acceptWithMessage(ThrowingBiConsumer<String, T, JMSException> consumer, String name, T value)
+    {
+        return throwingBiConsumer(consumer, name, value, "accept-with-message", log::trace, log::error);
     }
 }

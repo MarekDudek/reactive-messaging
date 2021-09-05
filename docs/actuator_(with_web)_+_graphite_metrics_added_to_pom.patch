@@ -1,0 +1,56 @@
+Index: pom.xml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/pom.xml b/pom.xml
+--- a/pom.xml	(revision 2e670ce24a3abac31beb48113dd911dfd7b1dde3)
++++ b/pom.xml	(date 1630447869528)
+@@ -36,9 +36,18 @@
+     </dependencyManagement>
+ 
+     <dependencies>
++        <!-- Spring Boot starters -->
+         <dependency>
+             <groupId>org.springframework.boot</groupId>
+             <artifactId>spring-boot-starter</artifactId>
++        </dependency>
++        <dependency>
++            <groupId>org.springframework.boot</groupId>
++            <artifactId>spring-boot-starter-web</artifactId>
++        </dependency>
++        <dependency>
++            <groupId>org.springframework.boot</groupId>
++            <artifactId>spring-boot-starter-actuator</artifactId>
+         </dependency>
+         <!-- Messaging -->
+         <dependency>
+@@ -68,6 +77,7 @@
+             <artifactId>com.ibm.mq.allclient</artifactId>
+             <version>9.2.3.0</version>
+         </dependency>
++        <!-- Kafka -->
+         <dependency>
+             <groupId>org.apache.kafka</groupId>
+             <artifactId>kafka-streams</artifactId>
+@@ -80,6 +90,12 @@
+         <dependency>
+             <groupId>io.projectreactor</groupId>
+             <artifactId>reactor-core</artifactId>
++        </dependency>
++        <!-- Monitoring -->
++        <dependency>
++            <groupId>io.micrometer</groupId>
++            <artifactId>micrometer-registry-graphite</artifactId>
++            <scope>runtime</scope>
+         </dependency>
+         <!-- Utils -->
+         <dependency>
+@@ -95,7 +111,6 @@
+         <dependency>
+             <groupId>org.apache.commons</groupId>
+             <artifactId>commons-lang3</artifactId>
+-
+         </dependency>
+         <!-- Dev -->
+         <dependency>

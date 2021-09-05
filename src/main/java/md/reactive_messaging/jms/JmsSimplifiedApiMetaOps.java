@@ -2,6 +2,8 @@ package md.reactive_messaging.jms;
 
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
+import md.reactive_messaging.functional.throwing.ThrowingBiConsumer;
+import md.reactive_messaging.functional.throwing.ThrowingConsumer;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 
 import javax.jms.JMSException;
@@ -112,6 +114,30 @@ public enum JmsSimplifiedApiMetaOps
         }
     }
 
+
+    public static <A> Optional<JMSException> throwingConsumer
+            (
+                    ThrowingConsumer<A, JMSException> c,
+                    A a,
+                    String name,
+                    BiConsumer<String, Object[]> out,
+                    BiConsumer<String, Object[]> err
+            )
+    {
+        try
+        {
+            out.accept("Attempt {} ({})", asArray(name, a));
+            c.accept(a);
+            out.accept("Success {}", asArray(name));
+            return empty();
+        }
+        catch (JMSException e)
+        {
+            err.accept("Failure {}", asArray(name, e));
+            return of(e);
+        }
+    }
+
     public static <A, B> Optional<JMSRuntimeException> biConsumer
             (
                     BiConsumer<A, B> c,
@@ -130,6 +156,30 @@ public enum JmsSimplifiedApiMetaOps
             return empty();
         }
         catch (JMSRuntimeException e)
+        {
+            err.accept("Failure {}", asArray(name, e));
+            return of(e);
+        }
+    }
+
+    public static <A, B> Optional<JMSException> throwingBiConsumer
+            (
+                    ThrowingBiConsumer<A, B, JMSException> c,
+                    A a,
+                    B b,
+                    String name,
+                    BiConsumer<String, Object[]> out,
+                    BiConsumer<String, Object[]> err
+            )
+    {
+        try
+        {
+            out.accept("Attempt {} ({}, {})", asArray(name, a, b));
+            c.accept(a, b);
+            out.accept("Success {}", asArray(name));
+            return empty();
+        }
+        catch (JMSException e)
         {
             err.accept("Failure {}", asArray(name, e));
             return of(e);

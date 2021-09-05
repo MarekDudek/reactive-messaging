@@ -42,7 +42,7 @@ public final class JmsSyncSender implements Runnable
         {
             try
             {
-                final int count = 15_000;
+                final int count = 100;
                 log.info("Attempt sending text message, count: {}", count);
                 manager.sendTextMessages(
                         connectionFactory, url,

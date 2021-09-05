@@ -67,3 +67,16 @@ plenty of threads visible in JVM
 
 4
 wrong handling of void methods, should be in fromCallable 
+
+
+mvn spring-boot:run -Dspring-boot.run.profiles=jms-sync-sender,tibco
+
+#mvn spring-boot:run -Dspring-boot.run.profiles=jms-sync-sender,tibco -Drun.jvmArguments="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=9990"
+#mvn -Drun.jvmArguments="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=9990" spring-boot:run -Dspring-boot.run.profiles=jms-sync-sender,tibco
+
+mvn spring-boot:run -Dagentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=9990 
+#-Dspring-boot.run.profiles=jms-sync-sender,tibco
+
+mvn spring-boot:run -Dspring-boot.run.profiles=jms-async-listener,tibco
+
+mvn spring-boot:run -Drun.jvmArguments="-Xdebug -Xrunjdwp:transport=dt_socket,server=y,suspend=n,address=$PORT_NUMBER"
