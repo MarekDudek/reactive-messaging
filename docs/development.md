@@ -1,37 +1,23 @@
+# Fat jar
 
+`java -jar -Dspring.profiles.active=jms-sync-sender,tibco ./target/reactive-messaging-0.0.1-SNAPSHOT.jar`
 
-java myapp -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=4000, suspend=n
+`java -jar -Dspring.profiles.active=jms-async-listener,tibco ./target/reactive-messaging-0.0.1-SNAPSHOT.jar`
 
+## with debug enabled
 
-java -jar -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=9990, suspend=n -Dspring.profiles.active=jms-async-listener,tibco ./target/reactive-messaging-0.0.1-SNAPSHOT.jar
+`java -agentlib:jdwp=transport=dt_socket,server=y,address=9991,suspend=n -jar -Dspring.profiles.active=jms-sync-sender,tibco ./target/reactive-messaging-0.0.1-SNAPSHOT.jar`
 
+`java -agentlib:jdwp=transport=dt_socket,server=y,address=9992,suspend=n -jar -Dspring.profiles.active=jms-async-listener,tibco ./target/reactive-messaging-0.0.1-SNAPSHOT.jar`
 
-java -agentlib:jdwp=transport=dt_socket,server=y,address=9990,suspend=n -jar -Dspring.profiles.active=jms-async-listener,tibco ./target/reactive-messaging-0.0.1-SNAPSHOT.jar
+# Spring Dev Tools
 
-# java fat jar
-java -agentlib:jdwp=transport=dt_socket,server=y,address=9990,suspend=n -jar -Dspring.profiles.active=jms-async-listener,tibco ./target/reactive-messaging-0.0.1-SNAPSHOT.jar
+`mvn spring-boot:run -Dspring-boot.run.profiles=jms-sync-sender,tibco`
 
-# Spring Boot DevTool
-# listener
-mvn -agentlib:jdwp=transport=dt_socket,server=y,address=9990,suspend=n spring-boot:run -Dspring-boot.run.profiles=jms-async-listener,tibco
+`mvn spring-boot:run -Dspring-boot.run.profiles=jms-async-listener,tibco`
 
-# sender
-mvn -agentlib:jdwp=transport=dt_socket,server=y,address=9990,suspend=n spring-boot:run -Dspring-boot.run.profiles=jms-sync-sender,tibco
-mvn -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=9990,suspend=n spring-boot:run -Dspring-boot.run.profiles=jms-sync-sender,tibco
+## with debug forced
 
-mvn spring-boot:run -Xdebug -Xrunjdwp:server=y,transport=dt_socket,address=9990,suspend=n -Dspring-boot.run.profiles=jms-sync-sender,tibco
+`mvn -P debug,9991 spring-boot:run -Dspring-boot.run.profiles=jms-sync-sender,tibco`
 
-
-mvn spring-boot:run -Dspring-boot.run.profiles=jms-sync-sender,tibco
-
-# Debugging application
-
-# Sender
-mvn -P reader-debug spring-boot:run -Dspring-boot.run.profiles=jms-sync-sender,tibco
-
-
-# Sender
-mvn -P debug,9991 spring-boot:run -Dspring-boot.run.profiles=jms-sync-sender,tibco
-
-# Receiver
-mvn -P debug,9992 spring-boot:run -Dspring-boot.run.profiles=jms-async-listener,tibco
+`mvn -P debug,9992 spring-boot:run -Dspring-boot.run.profiles=jms-async-listener,tibco`
