@@ -13,6 +13,7 @@ import javax.jms.*;
 import java.time.Duration;
 
 import static md.reactive_messaging.functional.LoggingFunctional.logRunnable;
+import static md.reactive_messaging.functional.LoggingFunctional.logThrowingFunction;
 import static md.reactive_messaging.reactive.ReactiveUtils.ALWAYS_RETRY;
 import static md.reactive_messaging.reactive.ReactiveUtils.monitored;
 import static md.reactive_messaging.reactive.Reconnect.*;
@@ -46,12 +47,12 @@ public class ReactiveOps
                 "Connection factory"
         );
 
-        Many<Reconnect> reconnectS = Sinks.many().multicast().onBackpressureBuffer();
+        Many<Reconnect> reconnectS = Sinks.many().unicast().onBackpressureBuffer();
         Many<M> messageS = Sinks.many().multicast().onBackpressureBuffer();
 
         Mono<JMSConsumer> consumerM = monitored(
                 connectionFactoryM.flatMap(factory ->
-                                contextForCredentialsQueueAndConsumer(factory, userName, password, queueName, converter, reconnectS, messageS)
+                                contextAndAsyncListener(factory, userName, password, queueName, converter, reconnectS, messageS)
                         ).
                         subscribeOn(boundedElastic()).
                         publishOn(connectionPublisher),
@@ -87,7 +88,7 @@ public class ReactiveOps
         Scheduler messagePublisher = newSingle("Message Publisher");
 
 
-        Flux<M> messageHeardF = monitored(
+        Flux<M> messageF = monitored(
                 messageS.
                         asFlux().
                         subscribeOn(messageSubscriber).
@@ -96,12 +97,12 @@ public class ReactiveOps
         );
 
         return monitored(
-                repeatedF.flatMap(consumer -> messageHeardF),
+                repeatedF.flatMap(consumer -> messageF),
                 "Messages emitted"
         );
     }
 
-    <M> Mono<JMSConsumer> contextForCredentialsQueueAndConsumer
+    <M> Mono<JMSConsumer> contextAndAsyncListener
             (
                     ConnectionFactory factory,
                     String userName, String password,
@@ -112,115 +113,47 @@ public class ReactiveOps
     {
         return Mono.fromCallable(
                 () -> {
-
-                    JMSContext context;
                     try
                     {
-                        context = factory.createContext(userName, password);
+                        JMSContext context = factory.createContext(userName, password);
                         context.setAutoStart(false);
+                        try
+                        {
+                            context.setExceptionListener(exceptionHeard -> {
+                                        log.error("Exception heard in context: '{}'", exceptionHeard.getMessage());
+                                        logRunnable(context::close, "Closing context after error heard");
+                                        reconnectS.emitNext(EXCEPTION_IN_CONTEXT_HEARD, ALWAYS_RETRY);
+                                    }
+                            );
+                            Queue queue = context.createQueue(queueName);
+                            JMSConsumer consumer = context.createConsumer(queue);
+                            consumer.setMessageListener(message -> {
+                                        try
+                                        {
+                                            M converted = logThrowingFunction(converter::apply, message, "Converting message");
+                                            logRunnable(() -> messageS.emitNext(converted, ALWAYS_RETRY), "Emitting message");
+                                        }
+                                        catch (Exception e)
+                                        {
+                                            log.error("Error converting message: '{}'", e.getMessage());
+                                        }
+                                    }
+                            );
+                            context.start();
+                            return consumer;
+                        }
+                        catch (Throwable t)
+                        {
+                            context.close();
+                            reconnectS.emitNext(CREATING_ASYNC_LISTENER_FAILED, ALWAYS_RETRY);
+                            throw t;
+                        }
                     }
                     catch (Throwable t)
                     {
                         reconnectS.emitNext(CREATING_CONTEXT_FAILED, ALWAYS_RETRY);
                         throw t;
                     }
-
-                    try
-                    {
-                        context.setExceptionListener(exceptionHeard -> {
-                                    log.error("Exception heard in context: '{}'", exceptionHeard.getMessage());
-                                    logRunnable(
-                                            context::close,
-                                            "Closing context after error heard"
-                                    );
-                                    reconnectS.emitNext(EXCEPTION_IN_CONTEXT_HEARD, ALWAYS_RETRY);
-                                }
-                        );
-                    }
-                    catch (Throwable t)
-                    {
-                        logRunnable(
-                                context::close,
-                                "Closing context after setting exception listener failed"
-                        );
-                        reconnectS.emitNext(SETTING_EXCEPTION_LISTENER_FAILED, ALWAYS_RETRY);
-                        throw t;
-                    }
-
-                    Queue queue;
-                    try
-                    {
-                        queue = context.createQueue(queueName);
-                    }
-                    catch (Throwable t)
-                    {
-                        logRunnable(
-                                context::close,
-                                "Closing context after creating queue failed"
-                        );
-                        reconnectS.emitNext(CREATING_QUEUE_FAILED, ALWAYS_RETRY);
-                        throw t;
-                    }
-
-                    JMSConsumer consumer;
-                    try
-                    {
-                        consumer = context.createConsumer(queue);
-                    }
-                    catch (Throwable t)
-                    {
-                        logRunnable(
-                                context::close,
-                                "Closing context after creating consumer failed"
-                        );
-                        reconnectS.emitNext(CREATING_CONSUMER_FAILED, ALWAYS_RETRY);
-                        throw t;
-                    }
-
-                    try
-                    {
-                        consumer.setMessageListener(message -> {
-                                    try
-                                    {
-                                        log.trace("Attempt converting message {}", message);
-                                        M converted = converter.apply(message);
-                                        log.trace("Success converting message");
-                                        log.trace("Attempt emitting converted {}", converted);
-                                        messageS.emitNext(converted, ALWAYS_RETRY);
-                                        log.trace("Success emitting converted");
-                                    }
-                                    catch (JMSException e)
-                                    {
-                                        log.error("Error converting message: '{}'", e.getMessage());
-                                    }
-                                }
-                        );
-                    }
-                    catch (Throwable t)
-                    {
-                        logRunnable(
-                                context::close,
-                                "Closing context after setting message listener failed"
-                        );
-                        reconnectS.emitNext(SETTING_MESSAGE_LISTENER, ALWAYS_RETRY);
-                        throw t;
-                    }
-
-                    try
-                    {
-                        context.start();
-                    }
-                    catch (Throwable t)
-                    {
-                        logRunnable(
-                                context::close,
-                                "Closing context after starting context failed"
-                        );
-                        reconnectS.emitNext(STARTING_CONTEXT, ALWAYS_RETRY);
-                        throw t;
-                    }
-
-                    return consumer;
                 }
         );
     }

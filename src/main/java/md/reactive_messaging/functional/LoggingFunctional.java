@@ -1,6 +1,7 @@
 package md.reactive_messaging.functional;
 
 import lombok.extern.slf4j.Slf4j;
+import md.reactive_messaging.functional.throwing.ThrowingFunction;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.Callable;
@@ -50,6 +51,22 @@ public enum LoggingFunctional
     public static void logRunnable(@Nonnull Runnable runnable, @Nonnull String name)
     {
         logRunnable(runnable, ignore(), name);
+    }
+
+    public static <T, R> R logThrowingFunction(@Nonnull ThrowingFunction<T, R, Exception> function, @Nonnull T argument, @Nonnull String name) throws Exception
+    {
+        try
+        {
+            log.info("Attempt {}", name);
+            final R result = function.apply(argument);
+            log.info("Success {}: {}", name, result);
+            return result;
+        }
+        catch (Exception t)
+        {
+            log.error("Failure {}: '{}'", name, t.getMessage());
+            throw t;
+        }
     }
 
     public static <T> T logCallable(@Nonnull Callable<T> callable, @Nonnull Consumer<Throwable> listener, @Nonnull String name) throws Throwable
