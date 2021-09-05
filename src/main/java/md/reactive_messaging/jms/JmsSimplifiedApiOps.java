@@ -67,6 +67,11 @@ public class JmsSimplifiedApiOps
         return biConsumer(producer::send, destination, message, "send-text-message", log::trace, ERROR);
     }
 
+    public Optional<JMSRuntimeException> sendMessage(JMSProducer producer, Destination destination, Message message)
+    {
+        return biConsumer(producer::send, destination, message, "send-message", log::trace, ERROR);
+    }
+
     public Either<JMSRuntimeException, JMSConsumer> createConsumer(JMSContext context, Queue queue)
     {
         return function(context::createConsumer, queue, "create-consumer", log::debug, ERROR);

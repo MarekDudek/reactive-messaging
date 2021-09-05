@@ -4,15 +4,18 @@ import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.Either;
+import md.reactive_messaging.functional.throwing.ThrowingBiConsumer;
+import md.reactive_messaging.functional.throwing.ThrowingConsumer;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSException;
-import javax.jms.JMSRuntimeException;
+import javax.jms.*;
 import java.util.Optional;
-import java.util.stream.Stream;
+import java.util.function.Function;
+import java.util.function.LongFunction;
+import java.util.stream.LongStream;
 
 import static java.util.Optional.empty;
+import static java.util.Optional.of;
 import static java.util.function.Function.identity;
 import static md.reactive_messaging.functional.Either.right;
 
@@ -67,9 +70,12 @@ public final class JmsSimplifiedApiManager
                     @NonNull String userName,
                     @NonNull String password,
                     @NonNull String queueName,
-                    @NonNull Stream<String> texts
+                    @NonNull LongStream ids,
+                    @NonNull Function<JMSContext, Message> createMessage,
+                    @NonNull ThrowingBiConsumer<Message, Long, JMSException> updateMessage
             )
     {
+
         return
                 ops.connectionFactoryForUrlChecked(constructor, url).biMap(
                         checked ->
@@ -81,8 +87,26 @@ public final class JmsSimplifiedApiManager
                                             ops.createQueue(context, queueName).flatMap(queue ->
                                                     ops.createProducer(context).flatMap(producer -> {
                                                                 Optional<JMSRuntimeException> error =
-                                                                        texts.map(text ->
-                                                                                        ops.sendTextMessage(producer, queue, text)
+                                                                        ids.mapToObj((LongFunction<Optional<JMSRuntimeException>>) id -> {
+                                                                                            try
+                                                                                            {
+                                                                                                try
+                                                                                                {
+                                                                                                    Message message = createMessage.apply(context);
+                                                                                                    updateMessage.accept(message, id);
+                                                                                                    producer.send(queue, message);
+                                                                                                    return empty();
+                                                                                                }
+                                                                                                catch (JMSException e)
+                                                                                                {
+                                                                                                    return of(new JMSRuntimeException(e.getMessage()));
+                                                                                                }
+                                                                                            }
+                                                                                            catch (JMSRuntimeException e)
+                                                                                            {
+                                                                                                return of(e);
+                                                                                            }
+                                                                                        }
                                                                                 ).
                                                                                 filter(Optional::isPresent).findFirst().orElse(empty());
                                                                 return error.map(Either::left).orElse(right(NO_ERROR));

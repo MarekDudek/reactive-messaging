@@ -3,15 +3,19 @@ package md.reactive_messaging.apps;
 import lombok.Builder;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
+import md.reactive_messaging.functional.throwing.ThrowingBiConsumer;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 
 import javax.jms.ConnectionFactory;
+import javax.jms.JMSContext;
 import javax.jms.JMSException;
+import javax.jms.Message;
 import java.time.Duration;
+import java.util.function.Function;
+import java.util.stream.LongStream;
 
 import static java.lang.Thread.sleep;
-import static java.util.stream.IntStream.rangeClosed;
 
 @Builder
 @Slf4j
@@ -31,8 +35,15 @@ public final class JmsSyncSender implements Runnable
     private final String queueName;
     @NonNull
     private final String text;
+
+    private final int count;
+
     @NonNull
     private final Duration sleep;
+    @NonNull
+    private final Function<JMSContext, Message> createMessage;
+    @NonNull
+    private final ThrowingBiConsumer<Message, Long, JMSException> prepareMessage;
 
     @Override
     public void run()
@@ -42,13 +53,14 @@ public final class JmsSyncSender implements Runnable
         {
             try
             {
-                final int count = 100;
                 log.info("Attempt sending text message, count: {}", count);
                 manager.sendTextMessages(
                         connectionFactory, url,
                         userName, password,
                         queueName,
-                        rangeClosed(1, count).mapToObj(i -> "text-" + i)
+                        LongStream.rangeClosed(1, count),
+                        createMessage,
+                        prepareMessage
                 );
                 log.info("Success sending text message");
                 sleep(sleep.toMillis());

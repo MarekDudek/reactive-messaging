@@ -30,6 +30,15 @@ public enum ReactiveUtils
 {
     ;
 
+    public static <T> EmitFailureHandler alwaysRetrySending(T emitted)
+    {
+        return (signal, result) -> {
+            log.error("Emit failed: signal {}, result {} - retrying {}", signal, result, emitted);
+            return true;
+        };
+    }
+
+    @Deprecated
     public static final EmitFailureHandler ALWAYS_RETRY =
             (signal, result) ->
             {

@@ -7,6 +7,7 @@ import md.reactive_messaging.apps.JmsSyncSender;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 import md.reactive_messaging.jms.MessageConverters;
+import md.reactive_messaging.jms.MessageExtract;
 import md.reactive_messaging.reactive.ReactiveOps;
 import md.reactive_messaging.reactive.ReactivePublishers;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -19,6 +20,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
 import javax.jms.ConnectionFactory;
+import javax.jms.JMSContext;
 import javax.jms.JMSException;
 import java.time.Duration;
 
@@ -65,7 +67,11 @@ public class ReactiveMessagingApplication
                                 manager(manager).
                                 connectionFactory(connectionFactory).url(url).
                                 userName(userName).password(password).
-                                queueName(queueName).text("Message in the bottle").
+                                queueName(queueName).
+                                count(100).
+                                text("Message in the bottle").
+                                createMessage(JMSContext::createMessage).
+                                prepareMessage(MessageConverters::setSequentialId).
                                 sleep(ofSeconds(1)).
                                 build()
                 );
@@ -91,13 +97,13 @@ public class ReactiveMessagingApplication
         return args ->
                 taskExecutor.execute(() ->
                         RETHROWING_HANDLER.handle(
-                                JmsAsyncListener.<String>builder().
+                                JmsAsyncListener.<MessageExtract>builder().
                                         publishers(publishers).
                                         ops(reactiveOps).
                                         connectionFactory(connectionFactory).url(url).
                                         userName(userName).password(password).
                                         queueName(queueName).
-                                        converter(MessageConverters::formatStringBodyWithDeliveryDelay).
+                                        converter(MessageConverters::extract).
                                         maxAttempts(maxAttempts).minBackoff(minBackoff).maxBackoff(maxBackoff).
                                         build(),
                                 JmsAsyncListener.class.getName()

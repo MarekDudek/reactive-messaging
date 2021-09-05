@@ -122,6 +122,47 @@
         </dependency>
     </dependencies>
 
+    <profiles>
+        <profile>
+            <id>debug</id>
+            <activation>
+                <activeByDefault>false</activeByDefault>
+            </activation>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <jvmArguments>
+                                -Xdebug
+                                -Xrunjdwp:transport=dt_socket,server=y,suspend=y,address=${remote.debug.port}
+                            </jvmArguments>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>9991</id>
+            <properties>
+                <remote.debug.port>9991</remote.debug.port>
+            </properties>
+        </profile>
+        <profile>
+            <id>9992</id>
+            <properties>
+                <remote.debug.port>9992</remote.debug.port>
+            </properties>
+        </profile>
+        <profile>
+            <id>9993</id>
+            <properties>
+                <remote.debug.port>9993</remote.debug.port>
+            </properties>
+        </profile>
+    </profiles>
+
     <build>
         <plugins>
             <plugin>

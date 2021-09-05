@@ -37,7 +37,7 @@ public final class SimpleFlux
                 error -> log.error("Subscriber error", error),
                 () -> log.info("Subscriber finished")
         );
-        //waitForCtrlC();
+        waitForCtrlC();
         log.info("Done");
     }
 

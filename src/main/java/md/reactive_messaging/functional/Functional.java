@@ -1,6 +1,7 @@
 package md.reactive_messaging.functional;
 
 import lombok.NonNull;
+import md.reactive_messaging.functional.throwing.ThrowingFunction;
 
 import java.util.Optional;
 import java.util.function.Consumer;
@@ -23,6 +24,11 @@ public enum Functional
     public static <T, R> Function<T, R> constant(R value)
     {
         return ignored -> value;
+    }
+
+    public static <T, R, E extends Exception> ThrowingFunction<T, R, E> toThrowing(Function<T, R> function)
+    {
+        return function::apply;
     }
 
     public static <T> Consumer<T> ignore()

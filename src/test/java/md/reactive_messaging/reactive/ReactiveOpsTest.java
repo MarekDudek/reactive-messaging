@@ -5,6 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.TestTibcoEmsConfig;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.MessageConverters;
+import md.reactive_messaging.jms.MessageExtract;
 import org.junit.jupiter.api.*;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
@@ -15,6 +16,7 @@ import javax.jms.ConnectionFactory;
 import javax.jms.JMSConsumer;
 import javax.jms.JMSException;
 
+import static java.lang.String.format;
 import static md.reactive_messaging.TestTibcoEmsConfig.*;
 import static md.reactive_messaging.functional.Functional.ignore;
 import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.subscribeAndAwait;
@@ -71,7 +73,7 @@ final class ReactiveOpsTest
                                 ((ThrowingFunction<String, ConnectionFactory, JMSException>) TibjmsConnectionFactory::new).apply(URL),
                         ignore(), "Creating connection factory for URL"
                 ).flatMap(factory ->
-                        OPS.contextAndAsyncListener(factory, USER_NAME, PASSWORD, null, null, null, null)
+                        OPS.contextAndAsyncListener(factory, USER_NAME, PASSWORD, null, null)
                 );
 
         StepVerifier.create(contextM).
@@ -90,7 +92,7 @@ final class ReactiveOpsTest
                                 ((ThrowingFunction<String, ConnectionFactory, JMSException>) TibjmsConnectionFactory::new).apply(URL),
                         ignore(), "Creating connection factory for URL"
                 ).flatMap(factory ->
-                        OPS.contextAndAsyncListener(factory, USER_NAME, PASSWORD, null, null, null, null)
+                        OPS.contextAndAsyncListener(factory, USER_NAME, PASSWORD, null, null)
                 );
 
         StepVerifier.create(contextM).
@@ -109,7 +111,10 @@ final class ReactiveOpsTest
                         TibjmsConnectionFactory::new, URL,
                         USER_NAME, PASSWORD,
                         QUEUE_NAME,
-                        MessageConverters::formatStringBodyWithDeliveryDelay,
+                        message -> {
+                            MessageExtract extract = MessageConverters.extract(message);
+                            return format("%s", extract);
+                        },
                         MAX_ATTEMPTS, MIN_BACKOFF, TestTibcoEmsConfig.MAX_BACKOFF
                 );
         subscribeAndAwait(messages);

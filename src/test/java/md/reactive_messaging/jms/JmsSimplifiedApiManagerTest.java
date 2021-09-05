@@ -33,7 +33,7 @@ final class JmsSimplifiedApiManagerTest
     {
         final Stream<String> texts = IntStream.rangeClosed(1, 1_000).mapToObj(Integer::toString);
         final Optional<JMSRuntimeException> error =
-                MANAGER.sendTextMessages(TibjmsConnectionFactory::new, URL, USER_NAME, PASSWORD, QUEUE_NAME, texts);
+                MANAGER.sendTextMessages(TibjmsConnectionFactory::new, URL, USER_NAME, PASSWORD, QUEUE_NAME, null, null, null);
         assertThat(error).isNotPresent();
     }
 }
