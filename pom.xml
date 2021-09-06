@@ -20,7 +20,7 @@
 
     <properties>
         <java.version>1.8</java.version>
-        <tibco.version>8.5</tibco.version>
+        <tibco.ems.version>8.4</tibco.ems.version>
     </properties>
 
     <dependencyManagement>
@@ -48,19 +48,9 @@
         </dependency>
         <!-- Tibco/EMS -->
         <dependency>
-            <groupId>com.tibco</groupId>
+            <groupId>com.tibco.ems</groupId>
             <artifactId>tibjms</artifactId>
-            <version>${tibco.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.tibco</groupId>
-            <artifactId>tibjmsadmin</artifactId>
-            <version>${tibco.version}</version>
-        </dependency>
-        <dependency>
-            <groupId>com.tibco</groupId>
-            <artifactId>tibrvjms</artifactId>
-            <version>${tibco.version}</version>
+            <version>${tibco.ems.version}</version>
         </dependency>
         <!-- IBM MQ -->
         <dependency>
@@ -95,7 +85,6 @@
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
-
         </dependency>
         <!-- Dev -->
         <dependency>
