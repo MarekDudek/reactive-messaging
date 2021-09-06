@@ -61,7 +61,7 @@ public enum MessageConverters
         message.setLongProperty(SEQUENTIAL_ID, id);
     }
 
-    public static MessageExtract extract(Message message)
+    public static MessageExtract extract(Message message) throws JMSException
     {
         MessageExtractBuilder extract = MessageExtract.builder();
 
@@ -74,6 +74,9 @@ public enum MessageConverters
         {
             extract.sequentialId(OptionalLong.empty());
         }
+
+        Duration delay = between(ofEpochMilli(message.getJMSDeliveryTime()), now());
+        extract.delay(delay);
 
         return extract.build();
     }

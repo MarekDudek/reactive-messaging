@@ -69,10 +69,9 @@ public class ReactiveMessagingApplication
                                 userName(userName).password(password).
                                 queueName(queueName).
                                 count(100).
-                                text("Message in the bottle").
-                                createMessage(JMSContext::createMessage).
-                                prepareMessage(MessageConverters::setSequentialId).
                                 sleep(ofSeconds(1)).
+                                text("Message in the bottle").
+                                createMessage(JMSContext::createMessage).prepareMessage(MessageConverters::setSequentialId).
                                 build()
                 );
     }
@@ -82,8 +81,7 @@ public class ReactiveMessagingApplication
     ApplicationRunner jmsAsyncListener
             (
                     @Qualifier("app-runner") TaskExecutor taskExecutor,
-                    ReactivePublishers publishers,
-                    ReactiveOps reactiveOps,
+                    ReactiveOps ops,
                     ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
                     @Qualifier("url") String url,
                     @Qualifier("user-name") String userName,
@@ -98,12 +96,10 @@ public class ReactiveMessagingApplication
                 taskExecutor.execute(() ->
                         RETHROWING_HANDLER.handle(
                                 JmsAsyncListener.<MessageExtract>builder().
-                                        publishers(publishers).
-                                        ops(reactiveOps).
+                                        ops(ops).
                                         connectionFactory(connectionFactory).url(url).
                                         userName(userName).password(password).
-                                        queueName(queueName).
-                                        converter(MessageConverters::extract).
+                                        queueName(queueName).converter(MessageConverters::extract).
                                         maxAttempts(maxAttempts).minBackoff(minBackoff).maxBackoff(maxBackoff).
                                         build(),
                                 JmsAsyncListener.class.getName()

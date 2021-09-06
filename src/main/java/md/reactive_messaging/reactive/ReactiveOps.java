@@ -131,7 +131,8 @@ public class ReactiveOps
                     }
                     catch (Throwable t)
                     {
-                        context.close();
+                        log.error("Failure creating sync receiver: '{}'", t.getMessage());
+                        logRunnable(context::close, "Closing context after failure somewhere creating sync receiver");
                         reconnectS.emitNext(CREATING_ASYNC_LISTENER_FAILED, alwaysRetrySending(CREATING_ASYNC_LISTENER_FAILED));
                         throw t;
                     }
