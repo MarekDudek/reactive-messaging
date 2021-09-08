@@ -68,7 +68,7 @@ public class ReactiveMessagingApplication
                                 connectionFactory(connectionFactory).url(url).
                                 userName(userName).password(password).
                                 queueName(queueName).
-                                count(100).
+                                count(10_000).
                                 sleep(ofSeconds(1)).
                                 text("Message in the bottle").
                                 createMessage(JMSContext::createMessage).prepareMessage(MessageConverters::setSequentialId).

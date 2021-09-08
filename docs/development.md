@@ -47,12 +47,30 @@ Install RPMs
 
 #### Windows
 
-Run installer
+* Run installer
+* Stop service
+
+  `sc.exe stop tibemsd`
+
+* Check service status
+
+  `sc.exe query tibemsd`
+
+* Delete service
+
+  `emsntsrg.exe /r tibemsd`
+  
+* Create service
+
+  `emsntsrg.exe /i tibemsd c:\UBS\Dev\programs\ems\8.6\bin\ c:\UBS\Dev\programs\ems\8.6\bin\`
+
+* Start service
+
+  `sc.exe start tibemsd`
 
 ### Client
 
 Install jars to local Maven repo
-
 
 mvn install:install-file \
 -Dfile=tibjms.jar \
