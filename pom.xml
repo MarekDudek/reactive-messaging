@@ -20,7 +20,7 @@
 
     <properties>
         <java.version>1.8</java.version>
-        <tibco.ems.version>8.4</tibco.ems.version>
+        <tibco.ems.version>8.6</tibco.ems.version>
     </properties>
 
     <dependencyManagement>
