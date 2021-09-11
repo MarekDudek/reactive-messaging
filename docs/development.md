@@ -76,3 +76,8 @@ Install jars to local Maven repo, script in bin folder
 
 Best run on Docker as in
 https://developer.ibm.com/tutorials/mq-connect-app-queue-manager-containers/
+
+### Start docker
+
+docker run -e LICENSE=accept -e MQ_QMGR_NAME=QM1 -p 1414:1414 -p 9443:9443 -d -v qm1data:/mnt/mqm -n ibm-mq ibmcom/mq
+docker start ibm-mq
