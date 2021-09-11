@@ -59,7 +59,7 @@ Install RPMs
 * Delete service
 
   `emsntsrg.exe /r tibemsd`
-  
+
 * Create service
 
   `emsntsrg.exe /i tibemsd c:\UBS\Dev\programs\ems\8.6\bin\ c:\UBS\Dev\programs\ems\8.6\bin\`
@@ -70,12 +70,9 @@ Install RPMs
 
 ### Client
 
-Install jars to local Maven repo
+Install jars to local Maven repo, script in bin folder
 
-mvn install:install-file \
--Dfile=tibjms.jar \
--DgroupId=com.tibco.ems \
--DartifactId=tibjms \
--Dversion=8.6 \
--Dpackaging=jar \
--DgeneratePom=true
+## IBM MQ
+
+Best run on Docker as in
+https://developer.ibm.com/tutorials/mq-connect-app-queue-manager-containers/

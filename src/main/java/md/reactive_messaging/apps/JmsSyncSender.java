@@ -7,11 +7,9 @@ import md.reactive_messaging.functional.throwing.ThrowingBiConsumer;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 
-import javax.jms.ConnectionFactory;
-import javax.jms.JMSContext;
-import javax.jms.JMSException;
-import javax.jms.Message;
+import javax.jms.*;
 import java.time.Duration;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.stream.LongStream;
 
@@ -54,15 +52,19 @@ public final class JmsSyncSender implements Runnable
             try
             {
                 log.info("Attempt sending text message, count: {}", count);
-                manager.sendTextMessages(
-                        connectionFactory, url,
-                        userName, password,
-                        queueName,
-                        LongStream.rangeClosed(1, count),
-                        createMessage,
-                        prepareMessage
-                );
-                log.info("Success sending text message");
+                Optional<JMSRuntimeException> error =
+                        manager.sendTextMessages(
+                                connectionFactory, url,
+                                userName, password,
+                                queueName,
+                                LongStream.rangeClosed(1, count),
+                                createMessage,
+                                prepareMessage
+                        );
+                if (error.isPresent())
+                    log.error("Error sending message: {}", error.get().getMessage());
+                else
+                    log.info("Success sending text message");
                 sleep(sleep.toMillis());
             }
             catch (InterruptedException e)

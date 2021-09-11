@@ -16,6 +16,8 @@ import static lombok.AccessLevel.PUBLIC;
 @SuppressWarnings("OptionalUsedAsFieldOrParameterType")
 public class MessageExtract
 {
+    public static final String SEQUENTIAL_ID = "sequentialId";
+
     @NonNull
     OptionalLong sequentialId;
     @NonNull

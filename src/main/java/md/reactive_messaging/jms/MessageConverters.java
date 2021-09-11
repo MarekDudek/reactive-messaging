@@ -15,7 +15,7 @@ import static java.lang.String.format;
 import static java.time.Duration.between;
 import static java.time.Instant.now;
 import static java.time.Instant.ofEpochMilli;
-import static md.reactive_messaging.configs.TibcoConfig.SEQUENTIAL_ID;
+import static md.reactive_messaging.jms.MessageExtract.SEQUENTIAL_ID;
 
 public enum MessageConverters
 {
