@@ -20,7 +20,7 @@ import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.
 
 @Builder
 @Slf4j
-public final class JmsAsyncListener<T> implements Runnable
+public final class JmsSyncReceiver<T> implements Runnable
 {
     @NonNull
     private final ReactiveOps ops;

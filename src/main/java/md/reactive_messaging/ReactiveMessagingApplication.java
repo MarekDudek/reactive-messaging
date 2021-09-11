@@ -1,7 +1,7 @@
 package md.reactive_messaging;
 
 import lombok.extern.slf4j.Slf4j;
-import md.reactive_messaging.apps.JmsAsyncListener;
+import md.reactive_messaging.apps.JmsSyncReceiver;
 import md.reactive_messaging.apps.JmsSyncSender;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
@@ -23,7 +23,7 @@ import javax.jms.JMSException;
 import java.time.Duration;
 
 import static java.time.Duration.ofSeconds;
-import static md.reactive_messaging.Profiles.JMS_ASYNC_LISTENER;
+import static md.reactive_messaging.Profiles.JMS_SYNC_RECEIVER;
 import static md.reactive_messaging.Profiles.JMS_SYNC_SENDER;
 import static md.reactive_messaging.tasks.RethrowingHandler.RETHROWING_HANDLER;
 
@@ -75,9 +75,9 @@ public class ReactiveMessagingApplication
                 );
     }
 
-    @Profile(JMS_ASYNC_LISTENER)
+    @Profile(JMS_SYNC_RECEIVER)
     @Bean
-    ApplicationRunner jmsAsyncListener
+    ApplicationRunner jmsSyncReceiver
             (
                     @Qualifier("app-runner") TaskExecutor taskExecutor,
                     ReactiveOps ops,
@@ -94,14 +94,14 @@ public class ReactiveMessagingApplication
         return args ->
                 taskExecutor.execute(() ->
                         RETHROWING_HANDLER.handle(
-                                JmsAsyncListener.<MessageExtract>builder().
+                                JmsSyncReceiver.<MessageExtract>builder().
                                         ops(ops).
                                         connectionFactory(connectionFactory).url(url).
                                         userName(userName).password(password).
                                         queueName(queueName).converter(MessageConverters::extract).
                                         maxAttempts(maxAttempts).minBackoff(minBackoff).maxBackoff(maxBackoff).
                                         build(),
-                                JmsAsyncListener.class.getName()
+                                JmsSyncReceiver.class.getName()
                         )
                 );
     }
