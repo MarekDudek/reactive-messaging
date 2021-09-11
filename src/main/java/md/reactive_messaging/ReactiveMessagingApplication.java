@@ -2,14 +2,12 @@ package md.reactive_messaging;
 
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.apps.JmsAsyncListener;
-import md.reactive_messaging.apps.JmsSyncReceiver;
 import md.reactive_messaging.apps.JmsSyncSender;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
 import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 import md.reactive_messaging.jms.MessageConverters;
 import md.reactive_messaging.jms.MessageExtract;
 import md.reactive_messaging.reactive.ReactiveOps;
-import md.reactive_messaging.reactive.ReactivePublishers;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
@@ -25,7 +23,8 @@ import javax.jms.JMSException;
 import java.time.Duration;
 
 import static java.time.Duration.ofSeconds;
-import static md.reactive_messaging.Profiles.*;
+import static md.reactive_messaging.Profiles.JMS_ASYNC_LISTENER;
+import static md.reactive_messaging.Profiles.JMS_SYNC_SENDER;
 import static md.reactive_messaging.tasks.RethrowingHandler.RETHROWING_HANDLER;
 
 @SpringBootApplication
@@ -103,36 +102,6 @@ public class ReactiveMessagingApplication
                                         maxAttempts(maxAttempts).minBackoff(minBackoff).maxBackoff(maxBackoff).
                                         build(),
                                 JmsAsyncListener.class.getName()
-                        )
-                );
-    }
-
-    @Profile(JMS_SYNC_RECEIVER)
-    @Bean
-    ApplicationRunner jmsSyncReceiver
-            (
-                    @Qualifier("app-runner") TaskExecutor taskExecutor,
-                    ReactivePublishers publishers,
-                    ThrowingFunction<String, ConnectionFactory, JMSException> connectionFactory,
-                    @Qualifier("url") String url,
-                    @Qualifier("user-name") String userName,
-                    @Qualifier("password") String password,
-                    @Qualifier("queue-name") String queueName,
-                    @Qualifier("max-attempts") long maxAttempts,
-                    @Qualifier("min-backoff") Duration minBackoff
-            )
-    {
-        return args ->
-                taskExecutor.execute(() ->
-                        RETHROWING_HANDLER.handle(
-                                JmsSyncReceiver.builder().
-                                        publishers(publishers).
-                                        connectionFactory(connectionFactory).url(url).
-                                        userName(userName).password(password).
-                                        queueName(queueName).
-                                        maxAttempts(maxAttempts).minBackoff(minBackoff).
-                                        build(),
-                                JmsSyncReceiver.class.getName()
                         )
                 );
     }

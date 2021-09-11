@@ -8,7 +8,7 @@ import org.springframework.context.annotation.Configuration;
 import java.time.Duration;
 
 @Configuration
-public class ReactivePublishersConfig
+public class ExponentialBackoffConfig
 {
     @Qualifier("max-attempts")
     @Bean
