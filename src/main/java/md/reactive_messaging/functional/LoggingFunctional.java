@@ -2,6 +2,7 @@ package md.reactive_messaging.functional;
 
 import lombok.extern.slf4j.Slf4j;
 import md.reactive_messaging.functional.throwing.ThrowingFunction;
+import md.reactive_messaging.functional.throwing.ThrowingRunnable;
 
 import javax.annotation.Nonnull;
 import java.util.concurrent.Callable;
@@ -15,6 +16,7 @@ public enum LoggingFunctional
 {
     ;
 
+    @Deprecated
     public static <T> T logSupplier(@Nonnull Supplier<T> supplier, @Nonnull Consumer<Throwable> listener, @Nonnull String name)
     {
         try
@@ -32,6 +34,7 @@ public enum LoggingFunctional
         }
     }
 
+    @Deprecated
     public static void logRunnable(@Nonnull Runnable runnable, @Nonnull Consumer<Throwable> listener, @Nonnull String name)
     {
         try
@@ -48,11 +51,33 @@ public enum LoggingFunctional
         }
     }
 
+    @Deprecated
     public static void logRunnable(@Nonnull Runnable runnable, @Nonnull String name)
     {
         logRunnable(runnable, ignore(), name);
     }
 
+    public static void handleThrowingRunnable(@Nonnull ThrowingRunnable<Exception> runnable, @Nonnull Consumer<Throwable> listener, @Nonnull String name)
+    {
+        try
+        {
+            log.info("Attempt {}", name);
+            runnable.run();
+            log.info("Success {}", name);
+        }
+        catch (Throwable t)
+        {
+            log.error("Failure {}: '{}'", name, t.getMessage());
+            listener.accept(t);
+        }
+    }
+
+    public static void handleThrowingRunnable(@Nonnull ThrowingRunnable<Exception> runnable, @Nonnull String name)
+    {
+        handleThrowingRunnable(runnable, ignore(), name);
+    }
+
+    @Deprecated
     public static <T, R> R logThrowingFunction(@Nonnull ThrowingFunction<T, R, Exception> function, @Nonnull T argument, @Nonnull String name) throws Exception
     {
         try
@@ -69,6 +94,7 @@ public enum LoggingFunctional
         }
     }
 
+    @Deprecated
     public static <T> T logCallable(@Nonnull Callable<T> callable, @Nonnull Consumer<Throwable> listener, @Nonnull String name) throws Throwable
     {
         try

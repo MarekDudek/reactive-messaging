@@ -12,11 +12,11 @@ import reactor.core.scheduler.Scheduler;
 import javax.jms.*;
 import java.time.Duration;
 
+import static md.reactive_messaging.functional.LoggingFunctional.handleThrowingRunnable;
 import static md.reactive_messaging.functional.LoggingFunctional.logRunnable;
 import static md.reactive_messaging.reactive.ReactiveUtils.alwaysRetrySending;
 import static md.reactive_messaging.reactive.ReactiveUtils.monitored;
-import static md.reactive_messaging.reactive.Reconnect.CREATING_ASYNC_LISTENER_FAILED;
-import static md.reactive_messaging.reactive.Reconnect.EXCEPTION_IN_CONTEXT_HEARD;
+import static md.reactive_messaging.reactive.Reconnect.*;
 import static reactor.core.scheduler.Schedulers.boundedElastic;
 import static reactor.core.scheduler.Schedulers.newSingle;
 import static reactor.util.retry.Retry.backoff;
@@ -57,28 +57,28 @@ public class ReactiveOps
                 "Reconnect request"
         );
 
-        Mono<JMSConsumer> consumerM = monitored(
+        Mono<MessageConsumer> consumerM = monitored(
                 connectionFactoryM.flatMap(factory ->
-                                contextAndSyncReceiver(factory, userName, password, queueName, reconnectS)
+                                connectionSessionAndSyncReceiver(factory, userName, password, queueName, reconnectS)
                         ).
                         subscribeOn(connectionSubscriber).
                         publishOn(connectionPublisher),
-                "Context"
+                "Message consumer"
         );
 
-        Mono<JMSConsumer> retriedM = monitored(
+        Mono<MessageConsumer> retriedM = monitored(
                 consumerM.
                         retryWhen(backoff(maxAttempts, minBackoff).maxBackoff(maxBackoff).
                                 doBeforeRetry(retry -> log.info("Retrying {}", retry)).
                                 doAfterRetry(retry -> log.info("Retried {}", retry))
                         ),
-                "Possibly retried context"
+                "Possibly retried message consumer"
         );
 
-        Flux<JMSConsumer> repeatedF = monitored(
+        Flux<MessageConsumer> repeatedF = monitored(
                 retriedM.
                         repeatWhen(repeat -> reconnectF),
-                "Possibly repeated context"
+                "Possibly repeated message consumer"
         );
 
         Scheduler messageSubscriber = newSingle("Message Subscriber");
@@ -133,7 +133,48 @@ public class ReactiveOps
                     {
                         log.error("Failure creating sync receiver: '{}'", t.getMessage());
                         logRunnable(context::close, "Closing context after failure somewhere creating sync receiver");
-                        reconnectS.emitNext(CREATING_ASYNC_LISTENER_FAILED, alwaysRetrySending(CREATING_ASYNC_LISTENER_FAILED));
+                        reconnectS.emitNext(CREATING_SYNC_RECEIVER_FAILED, alwaysRetrySending(CREATING_SYNC_RECEIVER_FAILED));
+                        throw t;
+                    }
+                }
+        );
+    }
+
+    Mono<MessageConsumer> connectionSessionAndSyncReceiver
+            (
+                    ConnectionFactory factory,
+                    String userName, String password,
+                    String queueName,
+                    Many<Reconnect> reconnectS
+            )
+    {
+        return Mono.fromCallable(() -> {
+                    Connection connection = factory.createConnection(userName, password);
+                    try
+                    {
+                        connection.setExceptionListener(exceptionHeard ->
+                                {
+                                    log.error("Exception heard in connection: '{}'", exceptionHeard.getMessage());
+                                    handleThrowingRunnable(connection::close, errorClosing -> {
+                                        log.warn("Error closing connection after error heard");
+                                    }, "Closing connection after error heard");
+                                    reconnectS.emitNext(EXCEPTION_IN_CONNECTION_HEARD, alwaysRetrySending(EXCEPTION_IN_CONNECTION_HEARD));
+                                    log.info("Emitted reconnect {}", EXCEPTION_IN_CONNECTION_HEARD);
+                                }
+                        );
+                        Session session = connection.createSession();
+                        Queue queue = session.createQueue(queueName);
+                        MessageConsumer consumer = session.createConsumer(queue);
+                        connection.start();
+                        return consumer;
+                    }
+                    catch (Throwable t)
+                    {
+                        log.error("Failure creating sync receiver: '{}'", t.getMessage());
+                        handleThrowingRunnable(connection::close, errorClosing -> {
+                            log.warn("Error closing connection after error heard");
+                        }, "Closing connection after error heard");
+                        reconnectS.emitNext(CREATING_SYNC_RECEIVER_FAILED, alwaysRetrySending(CREATING_SYNC_RECEIVER_FAILED));
                         throw t;
                     }
                 }
