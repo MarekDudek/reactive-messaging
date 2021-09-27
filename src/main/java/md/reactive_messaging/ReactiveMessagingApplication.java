@@ -7,7 +7,6 @@ import md.reactive_messaging.jms.JmsSimplifiedApiManager;
 import md.reactive_messaging.jms.MessageConverters;
 import md.reactive_messaging.jms.MessageExtract;
 import md.reactive_messaging.reactive.ReactiveOps;
-import org.apache.kafka.clients.producer.KafkaProducer;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.LongSerializer;
@@ -21,6 +20,10 @@ import org.springframework.context.annotation.Profile;
 import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 import reactor.core.publisher.Flux;
+import reactor.kafka.sender.KafkaSender;
+import reactor.kafka.sender.SenderOptions;
+import reactor.kafka.sender.SenderRecord;
+import reactor.kafka.sender.SenderResult;
 
 import javax.jms.ConnectionFactory;
 import javax.jms.JMSContext;
@@ -32,8 +35,6 @@ import static java.time.Duration.ofSeconds;
 import static md.reactive_messaging.Profiles.JMS_SYNC_RECEIVER;
 import static md.reactive_messaging.Profiles.JMS_SYNC_SENDER;
 import static md.reactive_messaging.reactive.GenericSubscribers.FluxSubscribers.subscribeAndAwait;
-import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG;
-import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 
 @SpringBootApplication
 @Slf4j
@@ -97,8 +98,8 @@ public class ReactiveMessagingApplication
                     @Qualifier("max-attempts") long maxAttempts,
                     @Qualifier("min-backoff") Duration minBackoff,
                     @Qualifier("max-backoff") Duration maxBackoff,
-                    KafkaProducer<Long, String> kafkaProducer,
-                    @Qualifier("kafka-topic") String kafkaTopic
+                    @Qualifier("kafka-topic") String kafkaTopic,
+                    KafkaSender<Long, String> kafkaSender
             )
     {
         return args ->
@@ -110,15 +111,18 @@ public class ReactiveMessagingApplication
                                             jmsQueueName, MessageConverters::extract,
                                             maxAttempts, minBackoff, maxBackoff
                                     );
+                            Flux<SenderRecord<Long, String, Object>> records =
+                                    messages.map(message -> {
+                                                ProducerRecord<Long, String> record = new ProducerRecord<>(kafkaTopic, 0L, message.toString());
+                                                return SenderRecord.create(record, new Object());
+                                            }
+                                    );
+                            Flux<SenderResult<Object>> results =
+                                    kafkaSender.send(records).
+                                            doOnNext(result -> log.info("Result {}", result));
                             try
                             {
-                                Flux<MessageExtract> written =
-                                        messages.doOnNext(message -> {
-                                                    ProducerRecord<Long, String> record = new ProducerRecord<>(kafkaTopic, 0L, "test value");
-                                                    kafkaProducer.send(record);
-                                                }
-                                        );
-                                subscribeAndAwait(written);
+                                subscribeAndAwait(results);
                             }
                             catch (InterruptedException e)
                             {
@@ -130,15 +134,16 @@ public class ReactiveMessagingApplication
 
     @Profile(JMS_SYNC_RECEIVER)
     @Bean
-    KafkaProducer<Long, String> kafkaProducer
+    KafkaSender<Long, String> kafkaSender
             (
                     @Qualifier("bootstrap-servers") String bootstrapServers
             )
     {
         Properties config = new Properties();
         config.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        config.put(KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName());
-        config.put(VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
-        return new KafkaProducer<>(config);
+        config.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, LongSerializer.class.getName());
+        config.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class.getName());
+        SenderOptions<Long, String> options = SenderOptions.create(config);
+        return KafkaSender.create(options);
     }
 }

@@ -11,6 +11,7 @@ import org.apache.kafka.common.serialization.LongDeserializer;
 import org.apache.kafka.common.serialization.LongSerializer;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.util.Properties;
@@ -25,9 +26,11 @@ import static org.apache.kafka.clients.producer.ProducerConfig.KEY_SERIALIZER_CL
 import static org.apache.kafka.clients.producer.ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG;
 
 @Slf4j
+@Disabled
 final class BasicKafkaTest
 {
-    private static final String BOOTSTRAP_SERVERS = "localhost:9092";
+    public static final String BOOTSTRAP_SERVERS = "localhost:19092,localhost:29092,localhost:39092";
+    //private static final String BOOTSTRAP_SERVERS = "localhost:9092";
     private static final String TOPIC = "test-topic";
 
     private AdminClient createAdmin()
